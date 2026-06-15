@@ -60,15 +60,22 @@ Notice we can now calculate the header length as the sum total number of bytes o
 
 A quick note about the timestamp - it is stored little endian so `4d 1d 1a` is equivalent to `0x1a1d4d`.
 
-### Record Payload Breakdown
+### Control Records 
 
+Records are broken into two main types - data records and control records. Data records themselves can be of many different types - `string`, `int`, `bool`, `string[]`, `Pose2d`, etc. Control records are the records that declare the existence of each data type contained in the log file. Control records are broken down into 3 types:
+
+1. a start control record - this declares the existence of a type of data in the log. control type = 0
+2. an end control record - this declares that the data for this type has no more entries in the log. control type = 1
+3. an update control record - this updates the metadata for the data type. control type = 2
+
+Control records are signified by an `entry_id` of `00` in the record header. From there, the rest of the information about the control record appears in the payload. The shape of the control record payload is as follows
 ```
-00              control type = 0 (Start)                     [1 byte]
-02 00 00 00     entry ID = 2                                 [4 bytes, uint32]
-07 00 00 00     name length = 7                              [4 bytes, uint32]
-63 6f 6e 73 6f 6c 65   "console"                             [7 bytes]
-06 00 00 00     type length = 6                              [4 bytes, uint32]
-73 74 72 69 6e 67       "string"                             [6 bytes]
-00 00 00 00     metadata length = 0                          [4 bytes, uint32]
-                (no metadata bytes)                          [0 bytes]
+00                     control type = 0 (Start)              [1 byte]
+02 00 00 00            entry ID = 2                          [4 bytes, uint32]
+07 00 00 00            name length = 7                       [4 bytes, uint32]
+63 6f 6e 73 6f 6c 65   record name = "console"               [7 bytes]
+06 00 00 00            type length = 6                       [4 bytes, uint32]
+73 74 72 69 6e 67      record type = "string"                [6 bytes]
+00 00 00 00            metadata length = 0                   [4 bytes, uint32]
+                       (no metadata bytes)                   [0 bytes]
 ```

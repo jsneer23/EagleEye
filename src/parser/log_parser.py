@@ -138,23 +138,47 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
     return offset
 
 # ---------------------------------------------------------------------------
-# payload something or other
+# record payload parser
 # ---------------------------------------------------------------------------
 
 
-def decode_value(entry: Entry, payload: bytes) -> Payload:
+def decode_payload(entry: Entry, payload: bytes) -> Payload:
+    '''
+    decode payloads based on payload type defined by control record
+    '''
 
     t = entry.type
-    if t == "double":
-        return struct.unpack_from("<d", payload, 0)[0]
-    elif t == "int64":
+
+    if t == "int64":
         return struct.unpack_from("<q", payload, 0)[0]
     elif t == "boolean":
         return struct.unpack_from("<?", payload, 0)[0]
+    elif t == "double":
+        return struct.unpack_from("<d", payload, 0)[0]
+    elif t == "float":
+        return struct.unpack_from("<f", payload, 0)[0]
     elif t == "string":
         return payload.decode("utf-8")
+    elif t == "int64[]":
+        return [v for (v,) in struct.iter_unpack("<q", payload)]
+    elif t == "boolean[]":
+        return [v for (v,) in struct.iter_unpack("<?", payload)]
+    elif t == "double[]":
+        return [v for (v,) in struct.iter_unpack("<d", payload)]
+    elif t == "float[]":
+        return [v for (v,) in struct.iter_unpack("<f", payload)]
     elif t == "string[]":
-        pass #TODO
+        array_length, offset = read_uint(payload, 0, 4)
+        items: list[str] = []
+        for _ in range(array_length):
+            string, offset = read_string(payload, offset)
+            items.append(string)
+        return items
+    elif t == "json":
+        return payload.decode("utf-8")
+    elif t.startswith(("proto:", "struct:", "photonstruct:")) or t.endswith("schema"):
+        #TODO: implement parsing of some of these structs, maybe
+        return payload
     else:
         raise ValueError(f"Unhandled type {t!r} for entry {entry.name!r}")
 
@@ -222,7 +246,7 @@ class LogParser:
                 if entry is None:
                     raise ValueError(f"Unknown entry id {entry_id} at offset {offset}")
 
-                value = decode_value(entry, payload)
+                value = decode_payload(entry, payload)
                 sig = signals.get(entry_id)
 
                 if sig is None:
@@ -231,6 +255,9 @@ class LogParser:
 
                 sig.timestamps.append(timestamp)
                 sig.values.append(value)
+
+        if offset != len(buf):
+            raise ValueError(f"trailing bytes or truncation: stopped at {offset} of {len(buf)}")
 
         return signals
 
