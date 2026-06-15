@@ -62,3 +62,13 @@ A quick note about the timestamp - it is stored little endian so `4d 1d 1a` is e
 
 ### Record Payload Breakdown
 
+```
+00              control type = 0 (Start)                     [1 byte]
+02 00 00 00     entry ID = 2                                 [4 bytes, uint32]
+07 00 00 00     name length = 7                              [4 bytes, uint32]
+63 6f 6e 73 6f 6c 65   "console"                             [7 bytes]
+06 00 00 00     type length = 6                              [4 bytes, uint32]
+73 74 72 69 6e 67       "string"                             [6 bytes]
+00 00 00 00     metadata length = 0                          [4 bytes, uint32]
+                (no metadata bytes)                          [0 bytes]
+```
