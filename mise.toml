@@ -1,0 +1,31 @@
+[tasks.check]
+description = "Run all checks (pyright + ruff)"
+run = ["mise run typecheck", "mise run lint"]
+
+[tasks.typecheck]
+description = "Run pyright type checker"
+run = "uv run pyright"
+
+[tasks.lint]
+description = "Run ruff linter"
+run = "uv run ruff check ."
+
+[tasks.format]
+description = "Run ruff formatter"
+run = "uv run ruff format ."
+
+[tasks.fix]
+description = "Auto-fix ruff lint issues"
+run = "uv run ruff check --fix ."
+
+[tasks.review]
+description = "Run the log review tool — pass LOG=path/to/file.wpilog"
+run = "eagleeye ${LOG}"
+
+[tasks.parse]
+description = "Run the parser directly during dev — pass LOG=path/to/file.wpilog"
+run = "uv run python -m eagleeye.log_parser ${LOG}"
+
+[tasks.test]
+description = "Run the parser directly during dev on sample log"
+run = "uv run python -m src.parser.log_parser src/test_logs/FRC_20260403_174543_CACAC_Q1.wpilog"

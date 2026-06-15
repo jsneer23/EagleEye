@@ -1,0 +1,35 @@
+# Virtual environment (uv-managed, machine-local — regenerate with `uv sync`)
+.venv/
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build / packaging artifacts (hatchling)
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Tooling caches
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Local test logs
+src/test_logs/
+
+# Editor / IDE
+.vscode/
+.idea/
+
+
+*.swp
+
+# OS cruft
+.DS_Store
+Thumbs.db
