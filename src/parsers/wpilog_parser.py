@@ -269,5 +269,9 @@ if __name__ == "__main__":
     import sys
 
     parser = LogParser(sys.argv[1])
-    parser.parse_data()
+    signals = parser.parse_data()
+
     print(f"valid: {parser._path}  ({len(parser._buf):,} bytes)")
+
+    for signal in signals.values():
+        print(signal.name)
