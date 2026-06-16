@@ -30,3 +30,14 @@ value
         6.00 6.02 6.04   time
 ```
 Each horizontal segment is one sample's value, held flat until the next sample steps it up or down. That's ZOH — a staircase.
+
+
+## Battery Brownout
+
+FRC batteries are nominally `12V` and the main breaker is nominally `120A`. In practice, the battery becomes discharged throughout the match (lowering initial voltage) and the breaker trip time chart actually allows `240A` of current for short bursts (<10s). Combine this with the internal resistance of the battery and the voltage drop during peak current events can brownout the CPU (i.e. roborio) on the robot, which occurs officially at `6.75V`.
+
+In practice, the logs are subject to sampling error, so the roborio's brownout protection (when power to motors is killed to free up voltage for the rio) can kick in before or without the voltage reaching brownout according to the logs. Typically brownouts are very momentary (<0.1s), owing to a spike in current draw as the robot accelerates and a let up as brownout protection kicks in. This back and forth can create a stutter that can generate lots of "positive" intervals and make the robot undrivable without lowering current limits on the motor controllers.
+
+The brownout detection log cheking tool is designed with these facts in mind. It will report all instances of actual brownout, along with a list of intervals where brownout occurred. In case of no actual brownout, it will still return a list of all intervals where the battery voltage entered the brownout warning stage. If the battery never reaches the warning level then the checks pass.
+
+Due to lack of measurement precision and desire to keep nerarby brownouts as one event, the intervals are padded to end an extra 0.1s after the voltage recovers from the brownout warning zone.
