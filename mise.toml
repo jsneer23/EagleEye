@@ -28,4 +28,4 @@ run = "uv run python -m eagleeye.log_parser ${LOG}"
 
 [tasks.test]
 description = "Run the parser directly during dev on sample log"
-run = "uv run python -m src.parser.log_parser src/test_logs/FRC_20260403_174543_CACAC_Q1.wpilog"
+run = "uv run python -m src.tests.tests src/tests/full_test_logs/FRC_20260403_174543_CACAC_Q1.wpilog"

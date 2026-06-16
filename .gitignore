@@ -21,7 +21,7 @@ htmlcov/
 coverage.xml
 
 # Local test logs
-src/test_logs/
+*/tests/full_test_logs/
 
 # Editor / IDE
 .vscode/

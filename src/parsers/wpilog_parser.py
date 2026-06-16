@@ -224,13 +224,13 @@ class LogParser:
         extra_len, offset = read_uint(buf, offset, 4)
         return offset + extra_len
 
-    def parse_data(self) -> dict[int, Signal]:
+    def parse_data(self) -> dict[str, Signal]:
 
         buf = self._buf
         offset = self._record_start
 
         entries: dict[int, Entry] = {}
-        signals: dict[int, Signal] = {}
+        signals: dict[str, Signal] = {}
 
         while offset < len(buf):
 
@@ -247,11 +247,11 @@ class LogParser:
                     raise ValueError(f"Unknown entry id {entry_id} at offset {offset}")
 
                 value = decode_payload(entry, payload)
-                sig = signals.get(entry_id)
+                sig = signals.get(entry.name)
 
                 if sig is None:
                     sig = Signal(entry.name, entry.type, [], [])
-                    signals[entry_id] = sig
+                    signals[entry.name] = sig
 
                 sig.timestamps.append(timestamp)
                 sig.values.append(value)
