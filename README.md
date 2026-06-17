@@ -1,10 +1,10 @@
 # FRC Log Review Tool
 
-A Python toolkit for analysing WPILib `.wpilog` robot log files.  
+A Python toolkit for analyzing WPILib `.wpilog` robot log files.  
 Built to run game-agnostic health checks as well as robot specific 
 function checks and system analysis.
 
-Eventually this will have web-based log uploading, reivew, and and AI-assisted analysis.
+To start, this is a command line tool that parses a log in a known folder and produces summary output. Eventually this will have web-based log uploading, reivew, graphing, and and AI-assisted analysis.
 
 ---
 
@@ -12,10 +12,10 @@ Eventually this will have web-based log uploading, reivew, and and AI-assisted a
 
 | File | Purpose |
 |---|---|
-| `wpilog_reader.py` | Low-level `.wpilog` binary parser |
-| `log_checks.py` | All health-check functions + `run_all_checks()` + `format_report()` |
-| `system_checks_YYYY.py` | All subsystem specific checks for a specific robot+ `run_all_checks()` + `format_report()` |
-| `frc_log_review.py` | CLI entry point |
+| `wpilog_parser.py` | Low-level `.wpilog` binary parser |
+| `can.py` | A can utilization checker for any can bus |
+| `brownout.py` | A robot brownout detection checker that reports which motors are the likely culprits |
+| `cameras.py` | A camera tag detection checker that reports errors with april tag detection |
 
 ---
 
