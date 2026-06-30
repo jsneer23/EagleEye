@@ -1,37 +1,20 @@
-import struct
 from dataclasses import dataclass
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# byte reader helpers
-# ---------------------------------------------------------------------------
-
-def read_uint(buf: bytes, offset: int, width: int) -> tuple[int, int]:
-    '''
-    buffer reader. starts at offset and reads width bytes and returns the new offset
-    as well as the value read in little endian
-    '''
-    end = offset + width
-
-    if end > len(buf):
-        raise ValueError(
-            f"read of {width} bytes at {offset} terminates past the end of the file "
-            f" ({len(buf)})"
-        )
-
-    value = int.from_bytes(buf[offset:end], "little")
-    return value, end
-
-def read_string(buf: bytes, offset: int) -> tuple[str, int]:
-    '''
-    string reader. used for the start of control record payloads where the length
-    of the string to be read in appears in the buffer right before the string.
-    '''
-    length, offset = read_uint(buf, offset, 4)
-    end = offset + length
-    text = buf[offset:end].decode("utf-8")
-
-    return text, end
+from .util import (
+    BaseSignal,
+    BoolArraySignal,
+    BoolSignal,
+    ByteSignal,
+    FloatArraySignal,
+    FloatSignal,
+    IntArraySignal,
+    IntSignal,
+    StrArraySignal,
+    StrSignal,
+    read_string,
+    read_uint,
+)
 
 # ---------------------------------------------------------------------------
 # record header helpers
@@ -63,11 +46,8 @@ def read_record_header(buf: bytes, offset: int) -> tuple[int, int, int, int]:
     return entry_id, payload_size, timestamp, offset
 
 # ---------------------------------------------------------------------------
-# payload dataclasses
+# decoding payload dataclass
 # ---------------------------------------------------------------------------
-
-# return type alias because payloads can return many different types
-type Payload = float | int | bool | str | bytes | list[float] | list[int] | list[bool] | list[str]
 
 @dataclass
 class Entry:
@@ -75,13 +55,6 @@ class Entry:
     name: str
     type: str
     metadata: str
-
-@dataclass
-class Signal:
-    name: str
-    type: str
-    timestamps: list[int]
-    values: list[Payload]
 
 # ---------------------------------------------------------------------------
 # control record decoding helpers
@@ -142,43 +115,31 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
 # ---------------------------------------------------------------------------
 
 
-def decode_payload(entry: Entry, payload: bytes) -> Payload:
+def create_signal(entry: Entry) -> BaseSignal:
     '''
     decode payloads based on payload type defined by control record
     '''
-
+    n = entry.name
     t = entry.type
 
     if t == "int64":
-        return struct.unpack_from("<q", payload, 0)[0]
+        return IntSignal(name=n, type=t)
     elif t == "boolean":
-        return struct.unpack_from("<?", payload, 0)[0]
-    elif t == "double":
-        return struct.unpack_from("<d", payload, 0)[0]
-    elif t == "float":
-        return struct.unpack_from("<f", payload, 0)[0]
+        return BoolSignal(name=n, type=t)
+    elif t == "double" or t == "float":
+        return FloatSignal(name=n, type=t)
     elif t == "string":
-        return payload.decode("utf-8")
+        return StrSignal(name=n, type=t)
     elif t == "int64[]":
-        return [v for (v,) in struct.iter_unpack("<q", payload)]
+        return IntArraySignal(name=n, type=t)
     elif t == "boolean[]":
-        return [v for (v,) in struct.iter_unpack("<?", payload)]
-    elif t == "double[]":
-        return [v for (v,) in struct.iter_unpack("<d", payload)]
-    elif t == "float[]":
-        return [v for (v,) in struct.iter_unpack("<f", payload)]
+        return BoolArraySignal(name=n, type=t)
+    elif t == "double[]" or t == "float[]":
+        return FloatArraySignal(name=n, type=t)
     elif t == "string[]":
-        array_length, offset = read_uint(payload, 0, 4)
-        items: list[str] = []
-        for _ in range(array_length):
-            string, offset = read_string(payload, offset)
-            items.append(string)
-        return items
-    elif t == "json":
-        return payload.decode("utf-8")
-    elif t.startswith(("proto:", "struct:", "photonstruct:")) or t.endswith("schema"):
-        #TODO: implement parsing of some of these structs, maybe
-        return payload
+        return StrArraySignal(name=n, type=t)
+    elif t == "json" or t.startswith(("proto:","struct:","photonstruct:")) or t.endswith("schema"):
+        return ByteSignal(name=n, type=t)
     else:
         raise ValueError(f"Unhandled type {t!r} for entry {entry.name!r}")
 
@@ -224,13 +185,13 @@ class LogParser:
         extra_len, offset = read_uint(buf, offset, 4)
         return offset + extra_len
 
-    def parse_data(self) -> dict[str, Signal]:
+    def parse_data(self) -> dict[str, BaseSignal]:
 
         buf = self._buf
         offset = self._record_start
 
         entries: dict[int, Entry] = {}
-        signals: dict[str, Signal] = {}
+        signals: dict[str, BaseSignal] = {}
 
         while offset < len(buf):
 
@@ -246,15 +207,13 @@ class LogParser:
                 if entry is None:
                     raise ValueError(f"Unknown entry id {entry_id} at offset {offset}")
 
-                value = decode_payload(entry, payload)
                 sig = signals.get(entry.name)
 
                 if sig is None:
-                    sig = Signal(entry.name, entry.type, [], [])
+                    sig = create_signal(entry)
                     signals[entry.name] = sig
 
-                sig.timestamps.append(timestamp)
-                sig.values.append(value)
+                sig.append_payload(timestamp, payload)
 
         if offset != len(buf):
             raise ValueError(f"trailing bytes or truncation: stopped at {offset} of {len(buf)}")

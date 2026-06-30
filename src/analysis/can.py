@@ -1,7 +1,8 @@
+from collections.abc import Mapping
 from itertools import pairwise
 
 from src.analysis.util import Check, CheckResult, Severity
-from src.parsers.wpilog_parser import Signal
+from src.parsers.util import BaseSignal, FloatSignal
 
 # ---------------------------------------------------------------------------
 # helper functions
@@ -75,7 +76,7 @@ class CanUtilizationCheck(Check):
         self.warn_peak = warn_peak
         self.sustained = sustained
 
-    def run(self, signals: dict[str, Signal]) -> CheckResult:
+    def run(self, signals: Mapping[str, BaseSignal]) -> CheckResult:
 
         if not self.applicable(signals):
             return CheckResult(
@@ -85,10 +86,14 @@ class CanUtilizationCheck(Check):
                 f"No can utilization found for {self.bus_label}"
             )
 
-        sig = signals[self.signal_name]
+        signal = signals[self.signal_name]
+
+        if not isinstance(signal, FloatSignal):
+            return CheckResult(self.id, self.name, Severity.NOT_APPLICABLE,
+                           f"{self.signal_name} is not a float")
 
         samples: list[tuple[float,float]] = [
-            (t*1e-6, v) for t,v in zip(sig.timestamps, sig.values, strict=True)
+            (t*1e-6, v) for t,v in zip(signal.timestamps, signal.values, strict=True)
             if isinstance(v, (int,float)) and not isinstance(v, bool)
         ]
 

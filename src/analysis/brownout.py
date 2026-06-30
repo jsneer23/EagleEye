@@ -1,5 +1,7 @@
+from collections.abc import Mapping
+
 from src.analysis.util import Check, CheckResult, Severity
-from src.parsers.wpilog_parser import Signal
+from src.parsers.util import BaseSignal, BoolSignal, FloatSignal
 
 # ---------------------------------------------------------------------------
 # helper functions
@@ -51,7 +53,7 @@ class BrownoutCheck(Check):
         self.warn_voltage = warn_voltage
         self.interval_buffer = warn_voltage
 
-    def run(self, signals: dict[str, Signal]) -> CheckResult:
+    def run(self, signals: Mapping[str, BaseSignal]) -> CheckResult:
 
         if not self.applicable(signals):
             return CheckResult(
@@ -62,7 +64,16 @@ class BrownoutCheck(Check):
                 f" {self.brownout_signal}"
             )
 
-        v_signal = signals[self.voltage_signal]
+        v_signal = signals.get(self.voltage_signal)
+        b_signal = signals.get(self.brownout_signal)
+
+        if not isinstance(v_signal, FloatSignal):
+            return CheckResult(self.id, self.name, Severity.NOT_APPLICABLE,
+                           f"{self.voltage_signal} is not a float")
+
+        if not isinstance(b_signal, BoolSignal):
+            return CheckResult(self.id, self.name, Severity.NOT_APPLICABLE,
+                           f"{self.voltage_signal} is not a boolean")
 
         voltage_samples: list[tuple[float, float]] = [
             (t*1e-6, v) for t,v in zip(v_signal.timestamps, v_signal.values, strict=True)
@@ -73,7 +84,6 @@ class BrownoutCheck(Check):
                                                    self.warn_voltage,
                                                    self.interval_buffer)
 
-        b_signal = signals[self.brownout_signal]
         brownout_times: list[float] = [
             t * 1e-6 for t, v in zip(b_signal.timestamps, b_signal.values, strict=True)
             if v is True

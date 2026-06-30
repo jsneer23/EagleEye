@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 
-from src.parsers.wpilog_parser import Signal
+from src.parsers.util import BaseSignal
 
 # ---------------------------------------------------------------------------
 # analysis utils
@@ -41,8 +42,8 @@ class Check(ABC):
     required_signals: list[str]
 
     @abstractmethod
-    def run(self, signals: dict[str, Signal]) -> CheckResult:
+    def run(self, signals: Mapping[str, BaseSignal]) -> CheckResult:
         ...
 
-    def applicable(self, signals: dict[str, Signal]) -> bool:
+    def applicable(self, signals: Mapping[str, BaseSignal]) -> bool:
         return all(name in signals for name in self.required_signals)
