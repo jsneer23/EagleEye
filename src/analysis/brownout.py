@@ -23,13 +23,13 @@ def low_voltage_intervals(samples: list[tuple[float, float]],
             last_low = time
             if run_start is None:
                 run_start = time
-        else:
-            if run_start is not None and (time - last_low) > buffer: #TODO: decide how to handle
+        elif run_start is not None and last_low is not None:
+            if (time - last_low) > buffer:
                 intervals.append((run_start, last_low + buffer))
                 run_start = None
                 last_low = None
 
-    if run_start is not None:
+    if run_start is not None and last_low is not None:
         intervals.append((run_start, last_low + buffer))
 
     return intervals, num_low
