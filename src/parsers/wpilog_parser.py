@@ -114,35 +114,27 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
 # record payload parser
 # ---------------------------------------------------------------------------
 
+_SIGNAL_TYPES: dict[str, type[BaseSignal]] = {
+    "int64":     IntSignal,
+    "boolean":   BoolSignal,
+    "double":    FloatSignal,
+    "float":     FloatSignal,
+    "string":    StrSignal,
+    "int64[]":   IntArraySignal,
+    "boolean[]": BoolArraySignal,
+    "double[]":  FloatArraySignal,
+    "float[]":   FloatArraySignal,
+    "string[]":  StrArraySignal,
+}
 
 def create_signal(entry: Entry) -> BaseSignal:
-    '''
-    decode payloads based on payload type defined by control record
-    '''
-    n = entry.name
-    t = entry.type
-
-    if t == "int64":
-        return IntSignal(name=n, type=t)
-    elif t == "boolean":
-        return BoolSignal(name=n, type=t)
-    elif t == "double" or t == "float":
-        return FloatSignal(name=n, type=t)
-    elif t == "string":
-        return StrSignal(name=n, type=t)
-    elif t == "int64[]":
-        return IntArraySignal(name=n, type=t)
-    elif t == "boolean[]":
-        return BoolArraySignal(name=n, type=t)
-    elif t == "double[]" or t == "float[]":
-        return FloatArraySignal(name=n, type=t)
-    elif t == "string[]":
-        return StrArraySignal(name=n, type=t)
-    elif t == "json" or t.startswith(("proto:","struct:","photonstruct:")) or t.endswith("schema"):
-        return ByteSignal(name=n, type=t)
-    else:
-        raise ValueError(f"Unhandled type {t!r} for entry {entry.name!r}")
-
+    cls = _SIGNAL_TYPES.get(entry.type)
+    if cls is not None:
+        return cls(name=entry.name, type=entry.type)
+    # byte-ish catch-all: json, proto:*, struct:*, *schema
+    if entry.type == "json" or entry.type.startswith(("proto:", "struct:", "photonstruct:")) or entry.type.endswith("schema"):
+        return ByteSignal(name=entry.name, type=entry.type)
+    raise ValueError(f"Unhandled type {entry.type!r} for entry {entry.name!r}")
 
 # ---------------------------------------------------------------------------
 # log parser class
