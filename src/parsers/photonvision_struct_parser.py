@@ -23,7 +23,7 @@ class TargetObservation:
 
 @dataclass
 class PipelineFrame:
-    timestamp: float
+    timestamp: int
     capture_ts_us: int
     seq_id: int
     targets: list[TargetObservation] = field(default_factory=list)
@@ -38,7 +38,7 @@ class CameraSignal(util.BaseSignal):
 
     def append_payload(self, timestamp: int, payload: bytes) -> None:
         self.timestamps.append(timestamp)
-        self.frames.append(decode_pipeline_result(payload, timestamp * 1e-6))
+        self.frames.append(decode_pipeline_result(payload, timestamp))
 
 # ---------------------------------------------------------------------------
 # helper functions
@@ -71,7 +71,7 @@ def _target(buffer: bytes, offset: int) -> tuple[TargetObservation, int]:
 # top level photonvision pipeline payload decoder
 # ---------------------------------------------------------------------------
 
-def decode_pipeline_result(payload: bytes, log_ts_s: float) -> PipelineFrame:
+def decode_pipeline_result(payload: bytes, log_ts_s: int) -> PipelineFrame:
 
     offset = 0
 

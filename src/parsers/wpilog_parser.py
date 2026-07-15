@@ -111,7 +111,7 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
     return offset
 
 # ---------------------------------------------------------------------------
-# record payload parser
+# signal creation
 # ---------------------------------------------------------------------------
 
 _SIGNAL_TYPES: dict[str, type[BaseSignal]] = {
@@ -128,12 +128,18 @@ _SIGNAL_TYPES: dict[str, type[BaseSignal]] = {
 }
 
 def create_signal(entry: Entry) -> BaseSignal:
+
     cls = _SIGNAL_TYPES.get(entry.type)
+
     if cls is not None:
         return cls(name=entry.name, type=entry.type)
-    # byte-ish catch-all: json, proto:*, struct:*, *schema
-    if entry.type == "json" or entry.type.startswith(("proto:", "struct:", "photonstruct:")) or entry.type.endswith("schema"):
+
+    if (entry.type == "json" or
+        entry.type.startswith(("proto:", "struct:", "photonstruct:")) or
+        entry.type.endswith("schema")
+    ):
         return ByteSignal(name=entry.name, type=entry.type)
+
     raise ValueError(f"Unhandled type {entry.type!r} for entry {entry.name!r}")
 
 # ---------------------------------------------------------------------------
@@ -177,13 +183,14 @@ class LogParser:
         extra_len, offset = read_uint(buf, offset, 4)
         return offset + extra_len
 
-    def parse_data(self) -> dict[str, BaseSignal]:
+    def parse_data(self) -> tuple[dict[str, BaseSignal], int]:
 
         buf = self._buf
         offset = self._record_start
 
         entries: dict[int, Entry] = {}
         signals: dict[str, BaseSignal] = {}
+        log_end_timestamp: int = 0
 
         while offset < len(buf):
 
@@ -205,12 +212,14 @@ class LogParser:
                     sig = create_signal(entry)
                     signals[entry.name] = sig
 
+                log_end_timestamp = max(timestamp, log_end_timestamp)
+
                 sig.append_payload(timestamp, payload)
 
         if offset != len(buf):
             raise ValueError(f"trailing bytes or truncation: stopped at {offset} of {len(buf)}")
 
-        return signals
+        return signals, log_end_timestamp
 
 
 if __name__ == "__main__":
@@ -220,7 +229,7 @@ if __name__ == "__main__":
     import sys
 
     parser = LogParser(sys.argv[1])
-    signals = parser.parse_data()
+    signals, _ = parser.parse_data()
 
     print(f"valid: {parser._path}  ({len(parser._buf):,} bytes)")
 

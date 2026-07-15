@@ -1,5 +1,7 @@
 import struct
 from abc import ABC, abstractmethod
+from bisect import bisect_left, bisect_right
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import ClassVar
 
@@ -57,18 +59,30 @@ def f64(buffer: bytes, offset: int) -> tuple[float, int]:
 # ---------------------------------------------------------------------------
 
 @dataclass(kw_only=True)
-class BaseSignal(ABC):
+class BaseSignal[V](ABC):
     name: str
     type: str
     timestamps: list[int] = field(default_factory=list)
-    values: list = field(default_factory=list)
+    values: list[V] = field(default_factory=list)
 
     @abstractmethod
     def append_payload(self, timestamp: int, payload: bytes) -> None:
         ...
 
+    def zip_between_ts(self,
+                       lo_ts: int | None = None,
+                       hi_ts: int | None = None) -> Iterator[tuple[int, V]]:
+
+        if lo_ts is None or hi_ts is None:
+            return iter([])
+
+        i = bisect_left(self.timestamps, lo_ts)
+        j = bisect_right(self.timestamps, hi_ts)
+
+        return zip(self.timestamps[i:j], self.values[i:j], strict=True)
+
 @dataclass(kw_only=True)
-class StructSignal(BaseSignal):
+class StructSignal[V](BaseSignal[V]):
 
     _fmt: str = field(init=False)
     _FORMATS: ClassVar[dict[str, str]]  = {
@@ -94,47 +108,40 @@ class StructSignal(BaseSignal):
         self.values.append(struct.unpack_from(self._fmt, payload, 0)[0])
 
 @dataclass(kw_only=True)
-class StructArraySignal(StructSignal):
+class StructArraySignal[V](StructSignal[list[V]]):
 
     def append_payload(self, timestamp: int, payload: bytes) -> None:
         self.timestamps.append(timestamp)
         self.values.append([v for (v,) in struct.iter_unpack(self._fmt, payload)])
 
 @dataclass(kw_only=True)
-class IntSignal(StructSignal):
-    values: list[int] = field(default_factory=list)
+class IntSignal(StructSignal[int]):
+    """int scalar signal."""
+@dataclass(kw_only=True)
+class FloatSignal(StructSignal[float]):
+   """float scalar signal."""
+@dataclass(kw_only=True)
+class BoolSignal(StructSignal[bool]):
+    """bool scalar signal."""
+@dataclass(kw_only=True)
+class IntArraySignal(StructArraySignal[int]):
+    """list[int] scalar signal."""
+@dataclass(kw_only=True)
+class FloatArraySignal(StructArraySignal[float]):
+    """list[float] scalar signal."""
+@dataclass(kw_only=True)
+class BoolArraySignal(StructArraySignal[bool]):
+    """list[bool] scalar signal."""
 
 @dataclass(kw_only=True)
-class FloatSignal(StructSignal):
-    values: list[float] = field(default_factory=list)
-
-@dataclass(kw_only=True)
-class BoolSignal(StructSignal):
-    values: list[bool] = field(default_factory=list)
-
-@dataclass(kw_only=True)
-class IntArraySignal(StructArraySignal):
-    values: list[list[int]] = field(default_factory=list)
-
-@dataclass(kw_only=True)
-class FloatArraySignal(StructArraySignal):
-    values: list[list[float]] = field(default_factory=list)
-
-@dataclass(kw_only=True)
-class BoolArraySignal(StructArraySignal):
-    values: list[list[bool]] = field(default_factory=list)
-
-@dataclass(kw_only=True)
-class StrSignal(BaseSignal):
-    values: list[str] = field(default_factory=list)
+class StrSignal(BaseSignal[str]):
 
     def append_payload(self, timestamp: int, payload: bytes) -> None:
         self.timestamps.append(timestamp)
         self.values.append(payload.decode("utf-8"))
 
 @dataclass(kw_only=True)
-class StrArraySignal(BaseSignal):
-    values: list[list[str]] = field(default_factory=list)
+class StrArraySignal(BaseSignal[list[str]]):
 
     def append_payload(self, timestamp: int, payload: bytes) -> None:
         self.timestamps.append(timestamp)
@@ -146,8 +153,7 @@ class StrArraySignal(BaseSignal):
         self.values.append(items)
 
 @dataclass(kw_only=True)
-class ByteSignal(BaseSignal):
-    values: list[bytes] = field(default_factory=list)
+class ByteSignal(BaseSignal[bytes]):
 
     def append_payload(self, timestamp: int, payload: bytes) -> None:
         self.timestamps.append(timestamp)

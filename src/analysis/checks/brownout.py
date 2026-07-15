@@ -1,14 +1,15 @@
-from collections.abc import Mapping
 
-from src.analysis.util import Check, CheckResult, Severity
-from src.parsers.util import BaseSignal, BoolSignal, FloatSignal
+from collections.abc import Iterator
+
+from src.analysis.features import ROBOT_PHASES
+from src.analysis.util import Check, CheckResult, Context, NotApplicableError, Severity, us_to_s
+from src.parsers.util import BoolSignal, FloatSignal
 
 # ---------------------------------------------------------------------------
 # helper functions
 # ---------------------------------------------------------------------------
 
-
-def low_voltage_intervals(samples: list[tuple[float, float]],
+def low_voltage_intervals(samples: Iterator[tuple[int, float]],
                           threshold: float,
                           buffer: float) -> tuple[list[tuple[float, float]], int]:
 
@@ -49,62 +50,44 @@ class BrownoutCheck(Check):
         self.name = "Battery Brownout"
         self.voltage_signal = voltage_signal
         self.brownout_signal = brownout_signal
-        self.required_signals = [voltage_signal, brownout_signal]
         self.warn_voltage = warn_voltage
-        self.interval_buffer = warn_voltage
+        self.interval_buffer = trailing_buffer
 
-    def run(self, signals: Mapping[str, BaseSignal]) -> CheckResult:
+    def run(self, ctx: Context) -> CheckResult:
 
-        if not self.applicable(signals):
-            return CheckResult(
-                self.id,
-                self.name,
-                Severity.NOT_APPLICABLE,
-                f"No battery voltage log at {self.voltage_signal} or no brownout log at"
-                f" {self.brownout_signal}"
-            )
+        v_signal = ctx.require(self.voltage_signal, FloatSignal)
+        b_signal = ctx.require(self.brownout_signal, BoolSignal)
 
-        v_signal = signals.get(self.voltage_signal)
-        b_signal = signals.get(self.brownout_signal)
+        match_span = ctx.feature(ROBOT_PHASES).match_span
 
-        if not isinstance(v_signal, FloatSignal):
-            return CheckResult(self.id, self.name, Severity.NOT_APPLICABLE,
-                           f"{self.voltage_signal} is not a float")
+        if match_span is None:
+            raise NotApplicableError("no enabled period in log")
 
-        if not isinstance(b_signal, BoolSignal):
-            return CheckResult(self.id, self.name, Severity.NOT_APPLICABLE,
-                           f"{self.voltage_signal} is not a boolean")
+        v_zip = v_signal.zip_between_ts(*match_span)
 
-        voltage_samples: list[tuple[float, float]] = [
-            (t*1e-6, v) for t,v in zip(v_signal.timestamps, v_signal.values, strict=True)
-            if isinstance(v, (int,float)) and not isinstance(v, bool)
-        ]
-
-        intervals, num_low = low_voltage_intervals(voltage_samples,
+        intervals, num_low = low_voltage_intervals(v_zip,
                                                    self.warn_voltage,
                                                    self.interval_buffer)
 
-        brownout_times: list[float] = [
-            t * 1e-6 for t, v in zip(b_signal.timestamps, b_signal.values, strict=True)
+        b_zip: list[float] = [
+            us_to_s(t, match_span) for t, v in zip(b_signal.timestamps, b_signal.values, strict=True)
             if v is True
         ]
 
-        browned_out = len(brownout_times) > 0
-
-        min_v = min((val for _, val in voltage_samples), default=float("nan"))
+        min_v = min((val for val in v_signal.values), default=float("nan"))
         details = {
             "min_voltage": round(min_v, 3),
             "warn_voltage": self.warn_voltage,
             "low_samples": num_low,
             "low_intervals": len(intervals),
-            "brownout_events": len(brownout_times),
+            "brownout_events": len(b_signal.timestamps),
         }
 
-        if browned_out:
+        if len(b_signal.timestamps) > 0:
             sev = Severity.FAIL
-            window = (f"{brownout_times[0]:.1f}-{brownout_times[-1]:.1f}s"
-                      if len(brownout_times) > 1 else f"{brownout_times[0]:.1f}s")
-            summary = (f"RIO browned out {len(brownout_times)}x ({window}); "
+            window = (f"{b_zip[0]:.1f}-{b_zip[-1]:.1f}s"
+                      if len(b_zip) > 1 else f"{b_zip[0]:.1f}s")
+            summary = (f"RIO browned out {len(b_zip)}x between [{window}]; "
                        f"voltage dropped to {min_v:.2f}V.")
         elif intervals:
             sev = Severity.WARNING
