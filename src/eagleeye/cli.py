@@ -1,3 +1,5 @@
+import sys
+
 from rich.console import Console
 from rich.highlighter import RegexHighlighter
 from rich.theme import Theme
@@ -36,12 +38,8 @@ def run_all(checks: list[Check], ctx: Context) -> list[CheckResult]:
             )
     return results
 
-if __name__ == "__main__":
-    '''
-    main function for testing individual log checks
-    '''
-    import sys
 
+def main() -> None:
     event_code = sys.argv[1]
     match_code = sys.argv[2]
 
@@ -54,3 +52,6 @@ if __name__ == "__main__":
 
     for check in checks:
         console.print(check)
+
+
+
