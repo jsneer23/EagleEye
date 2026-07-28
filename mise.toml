@@ -31,4 +31,4 @@ run = "uv run python -m eagleeye.log_parser ${LOG}"
 
 [tasks.analyze]
 description = "Run the analysis on a single match's logs"
-run = 'uv run python -m src.scripts.run_checks {{arg(name="event_code", default="2026cacac")}} {{arg(name="match_number", default="qm1")}}'
+run = 'uv run python -m scripts.run_checks {{arg(name="event_code", default="2026cacac")}} {{arg(name="match_number", default="qm1")}}'
