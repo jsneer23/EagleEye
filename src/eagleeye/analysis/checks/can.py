@@ -1,4 +1,4 @@
-from src.analysis.util import (
+from eagleeye.analysis.util import (
     Check,
     CheckResult,
     Context,
@@ -6,12 +6,12 @@ from src.analysis.util import (
     clean_intervals,
     threshold_excursions,
 )
-from src.parsers.util import FloatSignal
+from eagleeye.parsers.util import FloatSignal
+
 
 # ---------------------------------------------------------------------------
 # helper functions
 # ---------------------------------------------------------------------------
-
 class CanUtilizationCheck(Check):
 
     def __init__(

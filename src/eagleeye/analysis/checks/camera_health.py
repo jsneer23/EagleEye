@@ -1,15 +1,15 @@
 from collections.abc import Iterator
 
-from src.analysis.features import ROBOT_PHASES
-from src.analysis.util import NotApplicableError
-from src.parsers.util import BoolSignal
+from eagleeye.analysis.features import ROBOT_PHASES
+from eagleeye.analysis.util import NotApplicableError
+from eagleeye.parsers.util import BoolSignal
 
 from ..util import Check, CheckResult, Context, Severity
+
 
 # ---------------------------------------------------------------------------
 # helper functions
 # ---------------------------------------------------------------------------
-
 def camera_down(samples: Iterator[tuple[int, bool]]) -> tuple[bool, int, int]:
     return (False, 0, 0)
 

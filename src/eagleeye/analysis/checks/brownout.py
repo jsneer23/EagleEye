@@ -1,14 +1,21 @@
 
 from collections.abc import Iterator
 
-from src.analysis.features import ROBOT_PHASES
-from src.analysis.util import Check, CheckResult, Context, NotApplicableError, Severity, us_to_s
-from src.parsers.util import BoolSignal, FloatSignal
+from eagleeye.analysis.features import ROBOT_PHASES
+from eagleeye.analysis.util import (
+    Check,
+    CheckResult,
+    Context,
+    NotApplicableError,
+    Severity,
+    us_to_s,
+)
+from eagleeye.parsers.util import BoolSignal, FloatSignal
+
 
 # ---------------------------------------------------------------------------
 # helper functions
 # ---------------------------------------------------------------------------
-
 def low_voltage_intervals(samples: Iterator[tuple[int, float]],
                           threshold: float,
                           buffer: float) -> tuple[list[tuple[float, float]], int]:

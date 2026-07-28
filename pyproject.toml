@@ -27,6 +27,7 @@ test = [
 dev = [
     { include-group = "lint" },
     { include-group = "test" },
+    "pytest>=8.4.2",
 ]
 
 [project.scripts]
@@ -40,7 +41,7 @@ Repository = "https://github.com/jsneer23/EagleEye"
 # ---------------------------------------------------------------------------
 
 [tool.hatch.build.targets.wheel]
-packages = ["eagleeye"]
+packages = ["src/eagleeye"]
 
 # ---------------------------------------------------------------------------
 # ruff

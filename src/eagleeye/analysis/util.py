@@ -6,7 +6,7 @@ from enum import Enum
 from itertools import pairwise
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
-from src.parsers.util import BaseSignal
+from eagleeye.parsers.util import BaseSignal
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping

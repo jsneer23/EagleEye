@@ -2,12 +2,12 @@ from rich.console import Console
 from rich.highlighter import RegexHighlighter
 from rich.theme import Theme
 
-from src.analysis.checks.brownout import BrownoutCheck
-from src.analysis.checks.camera_health import CameraHealthCheck
-from src.analysis.checks.can import CanUtilizationCheck
-from src.analysis.util import Check, CheckResult, Context, NotApplicableError, Severity
-from src.discovery import LogFiles
-from src.parsers.wpilog_parser import LogParser
+from eagleeye.analysis.checks.brownout import BrownoutCheck
+from eagleeye.analysis.checks.camera_health import CameraHealthCheck
+from eagleeye.analysis.checks.can import CanUtilizationCheck
+from eagleeye.analysis.util import Check, CheckResult, Context, NotApplicableError, Severity
+from eagleeye.discovery import LogFiles
+from eagleeye.parsers.wpilog_parser import LogParser
 
 CHECKS: list[Check] = [
     CanUtilizationCheck("/Robot/SystemStats/CANBus/Utilization", "rio"),
