@@ -108,7 +108,9 @@ class EnabledIntervals(Feature[RobotPhases]):
                                                   fms_control.values,
                                                   last_log_timestamp)
 
-        enabled_intervals, truncated = true_intervals(enabled.timestamps, enabled. values, corrupted_log_end)
+        enabled_intervals, truncated = true_intervals(enabled.timestamps,
+                                                      enabled. values,
+                                                      corrupted_log_end)
 
         auton = []
         teleop = []

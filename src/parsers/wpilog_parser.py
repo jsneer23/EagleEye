@@ -16,10 +16,10 @@ from .util import (
     read_uint,
 )
 
+
 # ---------------------------------------------------------------------------
 # record header helpers
 # ---------------------------------------------------------------------------
-
 def decode_header_bitfield(bitfield: int) -> tuple[int, int, int]:
     '''
     decode header bitfield. see parser/README.md for breakdown
@@ -153,6 +153,7 @@ class LogParser:
     FORMAT = "<H"
 
     def __init__(self, file_path: str | Path) -> None:
+
         self._path = Path(file_path)
 
         try:
@@ -220,18 +221,3 @@ class LogParser:
             raise ValueError(f"trailing bytes or truncation: stopped at {offset} of {len(buf)}")
 
         return signals, log_end_timestamp
-
-
-if __name__ == "__main__":
-    '''
-    main function for testing this class piecemeal
-    '''
-    import sys
-
-    parser = LogParser(sys.argv[1])
-    signals, _ = parser.parse_data()
-
-    print(f"valid: {parser._path}  ({len(parser._buf):,} bytes)")
-
-    for signal in signals.values():
-        print(signal.name)

@@ -70,7 +70,7 @@ class BrownoutCheck(Check):
                                                    self.interval_buffer)
 
         b_zip: list[float] = [
-            us_to_s(t, match_span) for t, v in zip(b_signal.timestamps, b_signal.values, strict=True)
+            us_to_s(t, match_span) for t,v in zip(b_signal.timestamps, b_signal.values, strict=True)
             if v is True
         ]
 
@@ -85,9 +85,9 @@ class BrownoutCheck(Check):
 
         if len(b_signal.timestamps) > 0:
             sev = Severity.FAIL
-            window = (f"{b_zip[0]:.1f}-{b_zip[-1]:.1f}s"
+            window = (f"{b_zip[0]:.1f},{b_zip[-1]:.1f}s"
                       if len(b_zip) > 1 else f"{b_zip[0]:.1f}s")
-            summary = (f"RIO browned out {len(b_zip)}x between [{window}]; "
+            summary = (f"rio browned out {len(b_zip)}x between [{window}]; "
                        f"voltage dropped to {min_v:.2f}V.")
         elif intervals:
             sev = Severity.WARNING

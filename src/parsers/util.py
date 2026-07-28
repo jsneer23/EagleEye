@@ -5,10 +5,10 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import ClassVar
 
+
 # ---------------------------------------------------------------------------
 # base byte decoder helpers
 # ---------------------------------------------------------------------------
-
 def read_uint(buf: bytes, offset: int, width: int) -> tuple[int, int]:
     '''
     buffer reader. starts at offset and reads width bytes and returns the new offset

@@ -6,13 +6,14 @@ from src.analysis.checks.brownout import BrownoutCheck
 from src.analysis.checks.camera_health import CameraHealthCheck
 from src.analysis.checks.can import CanUtilizationCheck
 from src.analysis.util import Check, CheckResult, Context, NotApplicableError, Severity
+from src.discovery import LogFiles
 from src.parsers.wpilog_parser import LogParser
 
 CHECKS: list[Check] = [
     CanUtilizationCheck("/Robot/SystemStats/CANBus/Utilization", "rio"),
     CanUtilizationCheck("/Robot/Canivore/Canivore Bus Utilization", "canivore"),
     BrownoutCheck(),
-    #CameraHealthCheck(),
+    CameraHealthCheck(),
 ]
 
 class NumberHighlighter(RegexHighlighter):
@@ -41,7 +42,12 @@ if __name__ == "__main__":
     '''
     import sys
 
-    signals, last_log_timestamp = LogParser(sys.argv[1]).parse_data()
+    event_code = sys.argv[1]
+    match_code = sys.argv[2]
+
+    wpilog_path = LogFiles.for_match(event_code, match_code).wpilogs[0]
+
+    signals, last_log_timestamp = LogParser(wpilog_path).parse_data()
     ctx = Context(signals, last_log_timestamp)
 
     checks = run_all(CHECKS, ctx)
