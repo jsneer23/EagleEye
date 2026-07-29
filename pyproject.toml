@@ -113,7 +113,7 @@ docstring-code-format = true
 # ---------------------------------------------------------------------------
 
 [tool.pyright]
-pythonVersion = "3.12"
+pythonVersion = "3.13"
 typeCheckingMode = "standard"
 include = ["src"]
 exclude = ["**/__pycache__"]

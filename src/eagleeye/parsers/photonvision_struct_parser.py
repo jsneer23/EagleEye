@@ -4,7 +4,7 @@ import struct
 from dataclasses import dataclass, field
 from typing import Any
 
-import util
+from . import util
 
 # ---------------------------------------------------------------------------
 # photonvision pipeline result dataclasses
