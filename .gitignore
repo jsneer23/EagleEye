@@ -24,7 +24,10 @@ coverage.xml
 logs/
 
 # Editor / IDE
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
 .idea/
 
 

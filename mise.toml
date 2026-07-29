@@ -1,6 +1,10 @@
 [env]
 EAGLEEYE_LOGS = "{{config_root}}/logs"
 
+[tasks.setup]
+description = "One-time setup after cloning"
+run = "uv sync"
+
 [tasks.checks]
 description = "Run all static checks (pyright + ruff)"
 depends = ["lint", "typecheck"]
