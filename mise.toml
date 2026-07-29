@@ -1,7 +1,7 @@
 [env]
 EAGLEEYE_LOGS = "{{config_root}}/logs"
 
-[tasks.check]
+[tasks.checks]
 description = "Run all static checks (pyright + ruff)"
 depends = ["lint", "typecheck"]
 
@@ -21,13 +21,9 @@ run = "uv run ruff format ."
 description = "Auto-fix ruff lint issues"
 run = "uv run ruff check --fix ."
 
-[tasks.review]
-description = "Run the log review tool — pass LOG=path/to/file.wpilog"
-run = "eagleeye ${LOG}"
-
-[tasks.parse]
-description = "Run the parser directly during dev — pass LOG=path/to/file.wpilog"
-run = "uv run python -m eagleeye.log_parser ${LOG}"
+[tasks.test]
+description = "Run all tests"
+run = "uv run pytest tests/test_discovery.py -v"
 
 [tasks.analyze]
 description = "Run the analysis on a single match's logs"

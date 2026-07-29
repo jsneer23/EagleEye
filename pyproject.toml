@@ -20,14 +20,13 @@ lint = [
     "ruff~=0.15.15",
 ]
 test = [
-    "pytest~=8.0",
+    "pytest~=8.4",
     "pytest-asyncio~=1.3.0",
     "coverage~=7.13.0",
 ]
 dev = [
     { include-group = "lint" },
     { include-group = "test" },
-    "pytest>=8.4.2",
 ]
 
 [project.scripts]
@@ -41,7 +40,7 @@ Repository = "https://github.com/jsneer23/EagleEye"
 # ---------------------------------------------------------------------------
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/eagleeye"]
+sources = ["src"]
 
 # ---------------------------------------------------------------------------
 # ruff
@@ -101,7 +100,7 @@ combine-as-imports = true
 force-wrap-aliases = true
 
 [tool.ruff.lint.per-file-ignores]
-"eagleeye/cli.py" = ["BLE001"]
+"tests/**" = ["S101"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -128,11 +127,16 @@ reportUnnecessaryTypeIgnoreComment = "warning"
 # pytest
 # ---------------------------------------------------------------------------
 
-
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "-ra"
-testpaths = [
-    "tests"
-]
+addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
+testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"
+python_files = ["test_*.py"]
+
+# ---------------------------------------------------------------------------
+# uv
+# ---------------------------------------------------------------------------
+
+[tool.uv]
+required-version = ">=0.12.0"
