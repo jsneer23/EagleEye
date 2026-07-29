@@ -1,148 +1,93 @@
-# FRC Log Review Tool
+# EagleEye - an FRC Log Review Tool
 
-A Python toolkit for analyzing WPILib `.wpilog` robot log files.  
-Built to run game-agnostic health checks as well as robot specific 
-function checks and system analysis.
+[![CI](https://github.com/jsneer23/EagleEye/actions/workflows/ci.yml/badge.svg)](https://github.com/jsneer23/EagleEye/actions/workflows/ci.yml)
 
-To start, this is a command line tool that parses a log in a known folder and produces summary output. Eventually this will have web-based log uploading, reivew, graphing, and and AI-assisted analysis.
+A Python toolkit for analyzing robot log files (WPILib `.wpilog`, or CTRE `.hoot`, etc.).
 
----
+## Prerequisites
 
-## Files
+You need two tools installed: **uv** (manages Python and dependencies) and
+**mise** (runs project tasks). Install both with:
 
-| File | Purpose |
-|---|---|
-| `wpilog_parser.py` | Low-level `.wpilog` binary parser |
-| `can.py` | A can utilization checker for any can bus |
-| `brownout.py` | A robot brownout detection checker that reports which motors are the likely culprits |
-| `cameras.py` | A camera tag detection checker that reports errors with april tag detection |
+**macOS / Linux:**
 
----
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    curl https://mise.run | sh
 
-## Quick Start
+**macOS with Homebrew** (if you already use `brew`):
 
-```bash
-# Full check with details
-python frc_log_review.py FRC_20260403.wpilog -v
+    brew install uv mise
 
-# Concise summary table
-python frc_log_review.py FRC_20260403.wpilog
+**Windows:** see the [uv](https://docs.astral.sh/uv/getting-started/installation/)
+and [mise](https://mise.jdx.dev/getting-started.html) install pages.
 
-# List every channel in a log
-python frc_log_review.py FRC_20260403.wpilog --channels
+After installing, restart your terminal, then confirm both work:
 
-# Search for specific channels
-python frc_log_review.py FRC_20260403.wpilog --search voltage
-python frc_log_review.py FRC_20260403.wpilog --search swerve
+    uv --version
+    mise --version
 
-# Run only specific checks
-python frc_log_review.py FRC_20260403.wpilog --run can_dropout,voltage_sag -v
-```
+## Setup
 
----
+1. Install `uv` and `mise` (see above).
+2. Clone and enter the repo:
 
-## Annual Health Checks
+       git clone https://github.com/jsneer23/EagleEye.git
+       cd EagleEye
 
-| # | Check | What it looks for |
-|---|---|---|
-| 1 | **CAN Bus Dropout** | OffCount > 0, rising error counts, gaps in utilisation signal while enabled |
-| 2 | **CAN Bus Utilisation** | Sustained utilisation > 80% (warn) / 90% (error) — prefers Canivore bus |
-| 3 | **Voltage Sag / Brownout** | BrownedOut flag set, voltage < 7 V, or voltage within 0.5 V of brownout threshold |
-| 4 | **Battery Health** | Resting voltage in the first 15 s < 12.5 V (warn) / 12.0 V (error) |
-| 5 | **Motor Stall** | High stator current + near-zero velocity for ≥ 250 ms across all logged motors |
-| 6 | **Odometry Drift** | Vision-pose vs odometry comparison during enabled play (> 30 cm warn / 60 cm error) |
-| 7 | **Camera Disconnect** | Any camera connection dropped for > 100 ms |
-| 8 | **April Tag Detection** | Per-camera target-seen rate while enabled (< 10% warn / < 2% error) |
-| 9 | **Swerve Module Heading** | Per-module mean heading error vs target (> 5°) and outlier detection |
+3. Build the environment:
 
----
+       mise run setup
 
-## Using as a Library
+4. Open in VS Code and click **"Install recommended extensions"** when prompted.
 
-```python
-from wpilog_reader import DataLogReader
-from log_checks import run_all_checks, format_report
+Note: You shouldn't need to activate the virtual environment — `uv run` and the `mise`
+tasks manage it for you.
 
-reader = DataLogReader("FRC_20260403.wpilog")
+## Usage
 
-# Browse all channels
-for info in reader.list_channels("canivore"):
-    print(info.entry_id, info.dtype, info.name)
+Match logs live under `logs/{event_code}/{match_number}/`. For example,
+Qualification Match 1 from the 2026 Contra Costa District Event goes in `logs/2026cacac/qm1/`.
 
-# Read a specific channel — returns list[(timestamp_sec, value)]
-voltage = reader.read_channel("/Robot/SystemStats/BatteryVoltage")
-for ts, v in voltage[:5]:
-    print(f"t={ts:.3f}s  {v:.3f} V")
+Run the analysis on a match using mise as follows:
 
-# Read multiple channels in one pass (fast)
-data = reader.read_channels([
-    "/Robot/SystemStats/BatteryVoltage",
-    "/Robot/SystemStats/BatteryCurrent",
-    "/Robot/SystemStats/CANBus/Utilization",
-])
+    mise run analyze 2026cacac qm1
 
-# Run all health checks
-results = run_all_checks(reader)
-print(format_report(results, verbose=True))
 
-# Or just one check
-from log_checks import check_voltage_sag
-result = check_voltage_sag(reader)
-print(result.severity, result.summary)
-for detail in result.details:
-    print(" •", detail)
-```
+## Development
 
----
+Run these via mise:
 
-## Adding Year-Specific Checks
+| Command | What it does |
+| --- | --- |
+| `mise run test` | Run the test suite |
+| `mise run lint` | Ruff lint check |
+| `mise run format` | Ruff formatter |
+| `mise run fix` | Auto-fix ruff lint issues |
+| `mise run typecheck` | Pyright type check |
+| `mise run checks` | Pre-commit checks (lint, type check, and tests) |
+| `mise run analyze <event> <match>` | Analyze logs for <match> at <event> |
 
-Add a new function to `log_checks.py` (or a separate file, e.g. `checks_2026.py`)
-following the same pattern, then add it to `ALL_CHECKS`:
+## Project layout
 
-```python
-# In log_checks.py  (or checks_2026.py)
-def check_coral_score(reader: DataLogReader) -> CheckResult:
-    name = "Coral Scoring"
-    _, data = _first(reader, "/Robot/CoralArm/AtGoal")
-    if not data:
-        return _missing(name, "/Robot/CoralArm/AtGoal channel not found")
-    ...
-    return CheckResult(name=name, passed=True, severity="ok", summary="...")
+    src/eagleeye/
+    ├── cli.py            # command-line entry point (main)
+    ├── config.py         # where logs live (env-configurable)
+    ├── discovery.py      # finding a match's files
+    ├── wpilog_parser.py  # decodes the .wpilog binary format
+    ├── util.py           # byte-reading helpers + signal types
+    └── analysis/checks/  # the individual checks (CAN, brownout, cameras)
 
-# Then register it:
-ALL_CHECKS.append(check_coral_score)
-```
+    tests/                # mirrors src/ — test_<module>.py
 
----
+## Adding a new check
 
-## CheckResult fields
+1. Create `src/eagleeye/analysis/checks/your_check.py`.
+2. Follow the existing pattern (see `brownout.py`): implement `run(ctx)`
+   returning a `CheckResult`.
+3. Register it in the `CHECKS` list.
+4. Add a test at `tests/analysis/checks/test_your_check.py`.
+5. Run `mise run checks` and `mise run test` to confirm everything passes.
 
-```python
-@dataclass
-class CheckResult:
-    name: str            # human label
-    passed: bool | None  # None = data unavailable
-    severity: str        # "ok" | "warn" | "error" | "missing"
-    summary: str         # one-liner for a table
-    details: list[str]   # bullet-point details (verbose mode)
-    data: list[tuple[float, Any]]   # raw (timestamp_sec, value) for plotting
-```
+## License
 
----
-
-## Road Map toward the Web Frontend
-
-The library is structured with that future in mind:
-
-- **`wpilog_reader.py`** — pure parsing, no I/O side-effects; can be wrapped
-  by a FastAPI/Flask route that accepts an uploaded `.wpilog` and returns JSON.
-- **`log_checks.py`** — `CheckResult` is a dataclass that serialises cleanly
-  to JSON via `dataclasses.asdict()`.  The `data` field carries the raw
-  timeseries for charting.
-- **Future: battery tracking** — attach battery ID metadata to the reader
-  (filename, FMSInfo channels, or a separate YAML manifest) and aggregate
-  `check_battery_health` results across matches.
-- **Future: AI agent** — the structured `CheckResult` output + raw channel
-  data are a good input to an LLM-based Q&A layer (e.g. via the
-  `wpilog-mcp` MCP server pattern).
+MIT

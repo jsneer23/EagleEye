@@ -5,6 +5,7 @@
     "ms-python.vscode-pylance",
     "ms-python.debugpy",
     "tamasfe.even-better-toml",
-    "gruntfuggly.todo-tree"
+    "gruntfuggly.todo-tree",
+    "github.vscode-github-actions",
   ]
 }

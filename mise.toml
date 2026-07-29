@@ -7,7 +7,7 @@ run = "uv sync"
 
 [tasks.checks]
 description = "Run all static checks (pyright + ruff)"
-depends = ["lint", "typecheck"]
+depends = ["lint", "typecheck", "tests"]
 
 [tasks.typecheck]
 description = "Run pyright type checker"
@@ -25,9 +25,9 @@ run = "uv run ruff format ."
 description = "Auto-fix ruff lint issues"
 run = "uv run ruff check --fix ."
 
-[tasks.test]
+[tasks.tests]
 description = "Run all tests"
-run = "uv run pytest tests/test_discovery.py -v"
+run = "uv run pytest"
 
 [tasks.analyze]
 description = "Run the analysis on a single match's logs"
