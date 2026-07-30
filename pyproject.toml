@@ -142,7 +142,6 @@ python_files = ["test_*.py"]
 source = ["eagleeye"]
 omit = [
     "*/tests/*",
-    "*/analysis/checks/__init__.py",
 ]
 
 [tool.coverage.report]
