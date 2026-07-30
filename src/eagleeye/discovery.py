@@ -7,14 +7,20 @@ from .config import LOGS
 # ---------------------------------------------------------------------------
 # log filestructure handling / logfile discovery
 # ---------------------------------------------------------------------------
-def match_dir(event: str, match: str) -> Path:
-    p = (LOGS / event / match).resolve()
+def match_dir(event_code: str, match_code: str) -> Path:
+    '''
+    find file path to match logs given an event code and a match code, if one exists
+    '''
+    p = (LOGS / event_code / match_code).resolve()
     if not p.is_relative_to(LOGS.resolve()):
-        raise ValueError(f"illegal input: {event}/{match}")
+        raise ValueError(f"illegal input: {event_code}/{match_code}")
     return p
 
 @dataclass
 class LogFiles:
+    '''
+    log files management dataclass
+    '''
     dir: Path
 
     @classmethod

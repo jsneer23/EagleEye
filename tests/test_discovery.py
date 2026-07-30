@@ -1,4 +1,3 @@
-# tests/test_discovery.py
 from pathlib import Path
 
 import pytest
