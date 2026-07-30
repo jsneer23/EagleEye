@@ -11,6 +11,7 @@ depends = ["lint", "typecheck", "tests"]
 
 [tasks.typecheck]
 description = "Run pyright type checker"
+env = { PYRIGHT_PYTHON_IGNORE_WARNINGS = "1" }
 run = "uv run pyright"
 
 [tasks.lint]
@@ -25,10 +26,13 @@ run = "uv run ruff format ."
 description = "Auto-fix ruff lint issues"
 run = "uv run ruff check --fix ."
 
-[tasks.tests]
+[tasks.ci-tests]
 description = "Run all tests"
-run = "uv run pytest"
+run = "uv run pytest --cov-report=xml"
 
 [tasks.analyze]
 description = "Run the analysis on a single match's logs"
 run = 'uv run eagleeye {{arg(name="event_code", default="2026cacac")}} {{arg(name="match_number", default="qm1")}}'
+
+[tasks.tests]
+run = 'uv run pytest --cov-report=html  && open htmlcov/index.html'
