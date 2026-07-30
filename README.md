@@ -1,6 +1,7 @@
 # EagleEye - an FRC Log Review Tool
 
 [![CI](https://github.com/jsneer23/EagleEye/actions/workflows/ci.yml/badge.svg)](https://github.com/jsneer23/EagleEye/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/github/jsneer23/EagleEye/graph/badge.svg?token=8I0JF8M52O)](https://codecov.io/github/jsneer23/EagleEye)
 
 A Python toolkit for analyzing robot log files (WPILib `.wpilog`, or CTRE `.hoot`, etc.).
 
