@@ -66,7 +66,7 @@ Run these via mise:
 | `mise run fix` | Auto-fix ruff lint issues |
 | `mise run typecheck` | Pyright type check |
 | `mise run checks` | Pre-commit checks (lint, type check, and tests) |
-| `mise run analyze <event> <match>` | Analyze logs for `<match>` at `<event>` |
+| `mise run analyze <event_code> <match_code>` | Analyze logs for `<match_code>` at `<event_code>` |
 
 ## Project layout
 
