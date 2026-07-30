@@ -158,3 +158,46 @@ class ByteSignal(BaseSignal[bytes]):
     def append_payload(self, timestamp: int, payload: bytes) -> None:
         self.timestamps.append(timestamp)
         self.values.append(payload)
+
+# ---------------------------------------------------------------------------
+# decoding payload dataclass
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Entry:
+    entry_id: int
+    name: str
+    type: str
+    metadata: str
+
+# ---------------------------------------------------------------------------
+# signal creation
+# ---------------------------------------------------------------------------
+
+_SIGNAL_TYPES: dict[str, type[BaseSignal]] = {
+    "int64":     IntSignal,
+    "boolean":   BoolSignal,
+    "double":    FloatSignal,
+    "float":     FloatSignal,
+    "string":    StrSignal,
+    "int64[]":   IntArraySignal,
+    "boolean[]": BoolArraySignal,
+    "double[]":  FloatArraySignal,
+    "float[]":   FloatArraySignal,
+    "string[]":  StrArraySignal,
+}
+
+def create_signal(entry: Entry) -> BaseSignal:
+
+    cls = _SIGNAL_TYPES.get(entry.type)
+
+    if cls is not None:
+        return cls(name=entry.name, type=entry.type)
+
+    if (entry.type == "json" or
+        entry.type.startswith(("proto:", "struct:", "photonstruct:")) or
+        entry.type.endswith("schema")
+    ):
+        return ByteSignal(name=entry.name, type=entry.type)
+
+    raise ValueError(f"Unhandled type {entry.type!r} for entry {entry.name!r}")

@@ -1,17 +1,9 @@
-from dataclasses import dataclass
 from pathlib import Path
 
 from .util import (
     BaseSignal,
-    BoolArraySignal,
-    BoolSignal,
-    ByteSignal,
-    FloatArraySignal,
-    FloatSignal,
-    IntArraySignal,
-    IntSignal,
-    StrArraySignal,
-    StrSignal,
+    Entry,
+    create_signal,
     read_string,
     read_uint,
 )
@@ -44,17 +36,6 @@ def read_record_header(buf: bytes, offset: int) -> tuple[int, int, int, int]:
     timestamp, offset = read_uint(buf, offset, timestamp_len)
 
     return entry_id, payload_size, timestamp, offset
-
-# ---------------------------------------------------------------------------
-# decoding payload dataclass
-# ---------------------------------------------------------------------------
-
-@dataclass
-class Entry:
-    entry_id: int
-    name: str
-    type: str
-    metadata: str
 
 # ---------------------------------------------------------------------------
 # control record decoding helpers
@@ -109,38 +90,6 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
         raise ValueError(f"Unknown control type {control_type} at offset {offset}")
 
     return offset
-
-# ---------------------------------------------------------------------------
-# signal creation
-# ---------------------------------------------------------------------------
-
-_SIGNAL_TYPES: dict[str, type[BaseSignal]] = {
-    "int64":     IntSignal,
-    "boolean":   BoolSignal,
-    "double":    FloatSignal,
-    "float":     FloatSignal,
-    "string":    StrSignal,
-    "int64[]":   IntArraySignal,
-    "boolean[]": BoolArraySignal,
-    "double[]":  FloatArraySignal,
-    "float[]":   FloatArraySignal,
-    "string[]":  StrArraySignal,
-}
-
-def create_signal(entry: Entry) -> BaseSignal:
-
-    cls = _SIGNAL_TYPES.get(entry.type)
-
-    if cls is not None:
-        return cls(name=entry.name, type=entry.type)
-
-    if (entry.type == "json" or
-        entry.type.startswith(("proto:", "struct:", "photonstruct:")) or
-        entry.type.endswith("schema")
-    ):
-        return ByteSignal(name=entry.name, type=entry.type)
-
-    raise ValueError(f"Unhandled type {entry.type!r} for entry {entry.name!r}")
 
 # ---------------------------------------------------------------------------
 # log parser class
