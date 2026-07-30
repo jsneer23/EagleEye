@@ -1,12 +1,7 @@
 from pathlib import Path
 
-from .util import (
-    BaseSignal,
-    Entry,
-    create_signal,
-    read_string,
-    read_uint,
-)
+from eagleeye.parsers.byte_decoders import read_string, read_uint
+from eagleeye.parsers.signals import BaseSignal, Entry, create_signal
 
 
 # ---------------------------------------------------------------------------

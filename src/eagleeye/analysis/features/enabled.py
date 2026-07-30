@@ -1,7 +1,7 @@
 from bisect import bisect_right
 from dataclasses import dataclass
 
-from eagleeye.parsers.util import BoolSignal, IntSignal
+from eagleeye.parsers.signals import BoolSignal, IntSignal
 
 from ..util import Context, Feature, Interval, Intervals
 

@@ -6,7 +6,7 @@ from eagleeye.analysis.util import (
     clean_intervals,
     threshold_excursions,
 )
-from eagleeye.parsers.util import FloatSignal
+from eagleeye.parsers.signals import FloatSignal
 
 
 # ---------------------------------------------------------------------------
