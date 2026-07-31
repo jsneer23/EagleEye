@@ -2,22 +2,32 @@ import struct
 
 
 # ---------------------------------------------------------------------------
-# base byte decoder helpers
+# byte decoder bounds check
 # ---------------------------------------------------------------------------
+def _check_bounds(offset: int, width: int, length: int) -> None:
+    '''
+    raise ValueError if reading `width` bytes at `offset` runs past the buffer end
+    '''
+    if offset + width > length:
+        raise ValueError(
+            f"read of {width} bytes at {offset} terminates past the end of the file "
+            f" ({length}). Log may be truncated."
+        )
+
+# ---------------------------------------------------------------------------
+# byte decoders
+# ---------------------------------------------------------------------------
+
 def read_uint(buf: bytes, offset: int, width: int) -> tuple[int, int]:
     '''
     buffer reader. starts at offset and reads width bytes and returns the new offset
     as well as the value read in little endian
     '''
+    _check_bounds(offset, width, len(buf))
+
     end = offset + width
-
-    if end > len(buf):
-        raise ValueError(
-            f"read of {width} bytes at {offset} terminates past the end of the file "
-            f" ({len(buf)})"
-        )
-
     value = int.from_bytes(buf[offset:end], "little")
+
     return value, end
 
 def read_string(buf: bytes, offset: int) -> tuple[str, int]:
@@ -31,20 +41,32 @@ def read_string(buf: bytes, offset: int) -> tuple[str, int]:
 
     return text, end
 
-def u8(buffer: bytes, offset: int) -> tuple[int, int]:
-    return buffer[offset], offset + 1
+def u8(buf: bytes, offset: int) -> tuple[int, int]:
+    '''read an unsigned 8-bit int on the buffer starting at the given offset'''
+    _check_bounds(offset, 1, len(buf))
+    return buf[offset], offset + 1
 
-def i16(buffer: bytes, offset: int) -> tuple[int, int]:
-    return struct.unpack_from("<i", buffer, offset)[0], offset + 2
+def i16(buf: bytes, offset: int) -> tuple[int, int]:
+    '''read a 16-bit int on the buffer starting at the given offset'''
+    _check_bounds(offset, 2, len(buf))
+    return struct.unpack_from("<h", buf, offset)[0], offset + 2
 
-def i32(buffer: bytes, offset: int) -> tuple[int, int]:
-    return struct.unpack_from("<q", buffer, offset)[0], offset + 4
+def i32(buf: bytes, offset: int) -> tuple[int, int]:
+    '''read a 32-bit int on the buffer starting at the given offset'''
+    _check_bounds(offset, 4, len(buf))
+    return struct.unpack_from("<i", buf, offset)[0], offset + 4
 
-def i64(buffer: bytes, offset: int) -> tuple[int, int]:
-    return struct.unpack_from("<q", buffer, offset)[0], offset + 8
+def i64(buf: bytes, offset: int) -> tuple[int, int]:
+    '''read a 64-bit int on the buffer starting at the given offset'''
+    _check_bounds(offset, 8, len(buf))
+    return struct.unpack_from("<q", buf, offset)[0], offset + 8
 
-def f32(buffer: bytes, offset: int) -> tuple[float, int]:
-    return struct.unpack_from("<f", buffer, offset)[0], offset + 4
+def f32(buf: bytes, offset: int) -> tuple[float, int]:
+    '''read a 32-bit float on the buffer starting at the given offset'''
+    _check_bounds(offset, 4, len(buf))
+    return struct.unpack_from("<f", buf, offset)[0], offset + 4
 
-def f64(buffer: bytes, offset: int) -> tuple[float, int]:
-    return struct.unpack_from("<d", buffer, offset)[0], offset + 8
+def f64(buf: bytes, offset: int) -> tuple[float, int]:
+    '''read a 64-bit float on the buffer starting at the given offset'''
+    _check_bounds(offset, 8, len(buf))
+    return struct.unpack_from("<d", buf, offset)[0], offset + 8
