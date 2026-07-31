@@ -11,7 +11,7 @@ def _check_bounds(offset: int, width: int, length: int) -> None:
     if offset + width > length:
         raise ValueError(
             f"read of {width} bytes at {offset} terminates past the end of the file "
-            f" ({length}). Log may be truncated."
+            f" ({length}). Log may be malformed/truncated."
         )
 
 # ---------------------------------------------------------------------------
