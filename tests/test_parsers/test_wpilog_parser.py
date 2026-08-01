@@ -2,8 +2,10 @@ import pytest
 
 from eagleeye.parsers.signals import Entry
 from eagleeye.parsers.wpilog_parser import (
+    apply_control_record,
     decode_header_bitfield,
     read_finish_record,
+    read_metadata_record,
     read_record_header,
     read_start_record,
 )
@@ -87,3 +89,24 @@ def test_read_finish_record() -> None:
     '''
     buf = bytes.fromhex("00 2a000000")
     assert read_finish_record(buf, 1) == (42, 5)
+
+def test_read_metadata_record() -> None:
+    # entry_id=7 (4 bytes), then a length-prefixed metadata string "{}"
+    # 07000000            entry_id = 7
+    # 02000000 7b7d       metadata: len=2, "{}"
+    buf = bytes.fromhex("00 07000000 02000000 7b7d")   # leading 00 skipped
+    assert read_metadata_record(buf, 1) == (7, "{}", 11)
+
+
+#     offset   type   entry id   name len   name             type len   type           metadata len  metadata #noqa: E501
+start  = '11   00     02000000   07000000   636f6e736f6c65   06000000   737472696e67   00000000'
+@pytest.mark.parametrize("init_entries, bytestr, offset, expected_entries", [
+    ({}, start,  1, {2:Entry(2,"console", "string",   "")}),
+])
+def test_apply_control_record(init_entries: dict[int, Entry],
+                              bytestr: str,
+                              offset: int,
+                              expected_entries: dict[int, Entry]) -> None:
+    buf = bytes.fromhex(bytestr)
+    assert apply_control_record(buf, offset, init_entries) == 31
+    assert init_entries == expected_entries
