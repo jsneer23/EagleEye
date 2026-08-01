@@ -64,6 +64,12 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
 
     if control_type == 0:
         entry, offset = read_start_record(buf, offset)
+        if entry.entry_id in entries:
+            existing = entries[entry.entry_id].name
+            raise ValueError(f"start control record {entry.name} is attempting to overwrite an"
+                             f" existing log {existing} at entry_id {entry.entry_id}. log may be"
+                             f" malformer")
+
         entries[entry.entry_id] = entry
 
     elif control_type == 1:
