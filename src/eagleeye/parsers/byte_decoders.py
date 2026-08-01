@@ -4,28 +4,32 @@ import struct
 # ---------------------------------------------------------------------------
 # byte decoder bounds check
 # ---------------------------------------------------------------------------
-def _check_bounds(offset: int, width: int, length: int) -> None:
+def _check_bounds(offset: int, read_width: int, length: int) -> None:
     '''
-    raise ValueError if reading `width` bytes at `offset` runs past the buffer end
+    raise ValueError if reading `read_width` bytes at `offset` runs past the buffer end
     '''
-    if offset + width > length:
+    if offset + read_width > length:
         raise ValueError(
-            f"read of {width} bytes at {offset} terminates past the end of the file "
-            f" ({length}). Log may be malformed/truncated."
+            f"read of {read_width} bytes at {offset} terminates past the end of the file "
+            f" ({length}). log may be malformed/truncated."
         )
 
 # ---------------------------------------------------------------------------
 # byte decoders
 # ---------------------------------------------------------------------------
 
-def read_uint(buf: bytes, offset: int, width: int) -> tuple[int, int]:
+def read_uint(buf: bytes, offset: int, read_width: int) -> tuple[int, int]:
     '''
-    buffer reader. starts at offset and reads width bytes and returns the new offset
+    buffer reader. starts at `offset` and reads `read_width` bytes and returns the new offset
     as well as the value read in little endian
     '''
-    _check_bounds(offset, width, len(buf))
+    if read_width <= 0:
+        raise ValueError(f"buffer `read_width` must be positive, got {read_width}."
+                         f"log may be malformed.")
 
-    end = offset + width
+    _check_bounds(offset, read_width, len(buf))
+
+    end = offset + read_width
     value = int.from_bytes(buf[offset:end], "little")
 
     return value, end
@@ -35,9 +39,17 @@ def read_string(buf: bytes, offset: int) -> tuple[str, int]:
     string reader. used for the start of control record payloads where the length
     of the string to be read in appears in the buffer right before the string.
     '''
-    length, offset = read_uint(buf, offset, 4)
-    end = offset + length
-    text = buf[offset:end].decode("utf-8")
+    read_width, offset = read_uint(buf, offset, 4)
+    _check_bounds(offset, read_width, len(buf))
+    end = offset + read_width
+
+    try:
+        text = buf[offset:end].decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError(
+            f"invalid utf-8 conversion for string of length {read_width} at offset {offset}."
+            f"log may be malformed."
+        ) from e
 
     return text, end
 

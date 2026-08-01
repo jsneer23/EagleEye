@@ -6,22 +6,62 @@ import pytest
 from eagleeye.parsers.byte_decoders import f32, f64, i16, i32, i64, read_string, read_uint, u8
 
 
-def test_read_uint() -> None:
-    '''
-    affirmatively test read_unit reads the buffer at non_zero offset
-    '''
-    buf = b'zabcd'
+@pytest.mark.parametrize("buf, offset, read_width, result", [
     # bytes at offset 1, width 3, are b'abc' = 0x61, 0x62, 0x63
     # little-endian: 0x61 + 0x62*256 + 0x63*65536 = 6513249
-    print(0x61 + 0x62*256 + 0x63*65536)
-    assert read_uint(buf, 1, 3) == (6513249, 4)
+    (b'zabcd', 1, 3, (6513249, 4)),
+    (b'abcd', 0, 3, (6513249, 3)),
+    (b'\x01\x00', 0, 2, (1, 2)),
+    (b'\xff', 0, 1, (255, 1)),
+    (b'\x00\x00\x00\x00', 0, 4, (0, 4)),
+    (b'\xff\xff\xff\xff', 0, 4, (4294967295, 4)),
+])
+def test_read_uint(buf: bytes, offset: int, read_width: int, result: tuple[str, int]) -> None:
+    '''
+    affirmatively test read_unit reads the buffer at offset
+    '''
+    assert read_uint(buf, offset, read_width) == result
 
-def test_func_reads_string_value_at_offset() -> None:
+@pytest.mark.parametrize("buf, offset, read_width", [
+    (b'', 0, 3),
+    (b'', 1, 1),
+    (b'abc', 0, 4),
+    (b'abc', 0, 0),
+    (b'abc', 0, -1),
+])
+def test_uint_raises_past_end(buf: bytes, offset: int, read_width: int) -> None:
     '''
-    affirmatively test read_string returns the 4-byte length string located at given non-zero offset
+    negatively test read_uint raises ValueError (malformed logfile)
     '''
-    buf = struct.pack("<I", 3) + b"foo" + struct.pack("<I", 3) + b"bar"
-    assert read_string(buf, 7) == ("bar", len(buf))
+    with pytest.raises(ValueError):
+        read_uint(buf, offset, read_width)
+
+@pytest.mark.parametrize("buf, offset, result", [
+    (struct.pack("<I", 3) + b"foo" + struct.pack("<I", 3) + b"bar", 7, ("bar", 14)),
+    (b"a" + struct.pack("<I", 0), 1, ("", 5)),
+    (struct.pack("<I", 5) + "café".encode(), 0, ("café", 9)),
+])
+def test_func_read_string_value(buf: bytes, offset: int, result: tuple[str, int]) -> None:
+    '''
+    affirmatively test read_string reads the buffer at offset
+    '''
+    assert read_string(buf, offset) == result
+
+def test_read_string_raises_on_truncated_text() -> None:
+    '''
+    negatively test reading past the buffer end raises ValueError (malformed logfile)
+    '''
+    buf = struct.pack("<I", 5) + b"ab"
+    with pytest.raises(ValueError):
+        read_string(buf, 0)
+
+def test_read_string_raises_on_invalid_utf8() -> None:
+    '''
+    negatively test invalid utf-8 raises ValueError (malformed logfile)
+    '''
+    buf = struct.pack("<I", 2) + b"\xff\xfe"
+    with pytest.raises(ValueError):
+        read_string(buf, 0)
 
 u8_buff =  [ 0x00, 0x2A, 0xFF]
 i16_buff = [-0X8000, -5507, 0x7FFF]
@@ -63,14 +103,7 @@ def test_func_reads_byte_value(f: Callable,
 )
 def test_f_raises_past_end(f: Callable) -> None:
     '''
-    affirmatively test reading past the buffer end raises ValueError (malformed logfile)
+    negatively test reading past the buffer end raises ValueError (malformed logfile)
     '''
     with pytest.raises(ValueError):
         f(bytes([]), 0)
-
-def test_uint_raises_past_end() -> None:
-    '''
-    affirmatively test reading past the buffer end raises ValueError (malformed logfile)
-    '''
-    with pytest.raises(ValueError):
-        read_uint(bytes([]), 0, 4)
