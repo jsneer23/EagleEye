@@ -10,7 +10,7 @@ def _check_bounds(offset: int, read_width: int, length: int) -> None:
     '''
     if offset + read_width > length:
         raise ValueError(
-            f"read of {read_width} bytes at {offset} terminates past the end of the file "
+            f"read of {read_width} bytes at {offset} terminates past the end of the file"
             f" ({length}). log may be malformed/truncated."
         )
 
@@ -25,7 +25,7 @@ def read_uint(buf: bytes, offset: int, read_width: int) -> tuple[int, int]:
     '''
     if read_width <= 0:
         raise ValueError(f"buffer `read_width` must be positive, got {read_width}."
-                         f"log may be malformed.")
+                         f" log may be malformed.")
 
     _check_bounds(offset, read_width, len(buf))
 
@@ -48,7 +48,7 @@ def read_string(buf: bytes, offset: int) -> tuple[str, int]:
     except UnicodeDecodeError as e:
         raise ValueError(
             f"invalid utf-8 conversion for string of length {read_width} at offset {offset}."
-            f"log may be malformed."
+            f" log may be malformed."
         ) from e
 
     return text, end
