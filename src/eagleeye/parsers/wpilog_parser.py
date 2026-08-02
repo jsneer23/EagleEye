@@ -3,6 +3,34 @@ from pathlib import Path
 from eagleeye.parsers.byte_decoders import read_string, read_uint
 from eagleeye.parsers.signals import BaseSignal, Entry, create_signal
 
+# ---------------------------------------------------------------------------
+# wpilog file constants
+# ---------------------------------------------------------------------------
+
+MAGIC = b"WPILOG"
+VERSION = 0x0100
+
+# ---------------------------------------------------------------------------
+# read wpilog header bytes
+# ---------------------------------------------------------------------------
+
+def parse_wpilog_header(buf: bytes) -> int:
+        '''
+        validates the file is actually a wpilog file with correct magic and version
+        and returns the buffer offset for the first data record
+        '''
+        min_header_len = 12
+
+        if len(buf) < min_header_len:
+            raise ValueError(f"file too short. ({len(buf)} bytes)")
+        if buf[:len(MAGIC)] != MAGIC:
+            raise ValueError(f"bad magic {buf[:len(MAGIC)]!r}, expected {MAGIC!r}")
+        version, offset = read_uint(buf, len(MAGIC), 2)
+        if version != VERSION:
+            raise ValueError(f"unsupported version {version:#06x}")
+
+        extra_len, offset = read_uint(buf, offset, 4)
+        return offset + extra_len
 
 # ---------------------------------------------------------------------------
 # record header helpers
@@ -98,10 +126,6 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
 
 class LogParser:
 
-    MAGIC = b"WPILOG"
-    VERSION = 0x0100
-    FORMAT = "<H"
-
     def __init__(self, file_path: str | Path) -> None:
 
         self._path = Path(file_path)
@@ -112,27 +136,10 @@ class LogParser:
         except OSError as e:
             raise ValueError(f"could not read {self._path}: {e}") from e
 
-        self._record_start = self._parse_header()
-
-    def _parse_header(self) -> int:
-        '''
-        validaton function for testing that the file is actually a wpilog file.
-        it will check that the first bytes are "WPILOG" and that the version is
-        currently supported.
-        '''
-
-        buf = self._buf
-
-        if len(buf) < 12:
-            raise ValueError(f"{self._path}: file too short. ({len(buf)} bytes)")
-        if buf[:6] != self.MAGIC:
-            raise ValueError(f"{self._path}: bad magic {buf[:6]!r}, expected {self.MAGIC!r}")
-        version, offset = read_uint(buf, 6, 2)
-        if version != self.VERSION:
-            raise ValueError(f"{self._path}: unsupported version {version:#06x}")
-
-        extra_len, offset = read_uint(buf, offset, 4)
-        return offset + extra_len
+        try:
+            self._record_start = parse_wpilog_header(self._buf)
+        except ValueError as e:
+            raise ValueError(f"{self._path}: {e}") from e
 
     def parse_data(self) -> tuple[dict[str, BaseSignal], int]:
 
