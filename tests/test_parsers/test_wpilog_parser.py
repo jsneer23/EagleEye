@@ -97,16 +97,43 @@ def test_read_metadata_record() -> None:
     buf = bytes.fromhex("00 07000000 02000000 7b7d")   # leading 00 skipped
     assert read_metadata_record(buf, 1) == (7, "{}", 11)
 
-
-#     offset   type   entry id   name len   name             type len   type           metadata len  metadata #noqa: E501
-start  = '11   00     02000000   07000000   636f6e736f6c65   06000000   737472696e67   00000000'
+#      offset   type  entry id   name len   name             type len   type           metadata len  metadata #noqa: E501
+start   = '11   00    02000000   07000000   636f6e736f6c65   06000000   737472696e67   03000000     666F6F' #noqa: E501
+#      offset   type  entry id   metadata len  metadata
+update  = '11   02    02000000   03000000      666F6F'
+#      offset   type  entry id
+finish  = '11   01    02000000'
 @pytest.mark.parametrize("init_entries, bytestr, offset, expected_entries", [
-    ({}, start,  1, {2:Entry(2,"console", "string",   "")}),
+    ({},                                      start,  1, {2: Entry(2, "console", "string", "foo")}),
+    ({2: Entry(2, "console", "string", "")}, update,  1, {2: Entry(2, "console", "string", "foo")}),
+    ({2: Entry(2, "console", "string", "")}, finish,  1, {2: Entry(2, "console", "string", "")}),
 ])
 def test_apply_control_record(init_entries: dict[int, Entry],
                               bytestr: str,
                               offset: int,
                               expected_entries: dict[int, Entry]) -> None:
     buf = bytes.fromhex(bytestr)
-    assert apply_control_record(buf, offset, init_entries) == 31
+    assert apply_control_record(buf, offset, init_entries) == len(buf)
     assert init_entries == expected_entries
+
+#       offset   type  entry id   name len   name             type len   type           metadata len  metadata #noqa: E501
+start    = '11   00    02000000   07000000   636f6e736f6c65   06000000   737472696e67   03000000     666F6F' #noqa: E501
+#       offset   type  entry id   metadata len  metadata
+update   = '11   02    03000000   03000000      666F6F'
+#       offset   type  entry id   metadata len  metadata
+invalid  = '11   03    02000000   03000000      666F6F'
+@pytest.mark.parametrize("init_entries, bytestr, offset", [
+    ({2: Entry(2, "console", "string", "foo")},   start,  1),
+    ({2: Entry(2, "console", "string", "")},     update,  1),
+    ({2: Entry(2, "console", "string", "")},    invalid,  1),
+])
+def test_apply_control_record_raises(init_entries: dict[int, Entry],
+                                     bytestr: str,
+                                     offset: int,) -> None:
+    buf = bytes.fromhex(bytestr)
+    with pytest.raises(ValueError):
+        apply_control_record(buf, offset, init_entries)
+
+# ---------------------------------------------------------------------------
+# log parser class
+# ---------------------------------------------------------------------------
