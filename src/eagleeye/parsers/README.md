@@ -1,9 +1,17 @@
-# WPILOG File Basics
+# WPILOG File Readme
+
+## Official Documentation
+
+The official documentation for the .wpilog format can be found in the official wpilib repo [here](https://github.com/wpilibsuite/allwpilib/blob/v2026.2.1/wpiutil/doc/datalog.adoc). 
+
+There is also a [Kaitai Struct](https://kaitai.io) definition, provided by Jonah Snyder of FRC 581, located [here](https://github.com/wpilibsuite/allwpilib/blob/v2026.2.1/wpiutil/doc/wpilog.ksy).
+
+## WPILOG File Basics
 
 A .wpilog file consists of two basic parts
 
-1. a 12 byte header (possibly longer, if specified)
-2. a stream of "records" back to back to back
+1. a single 12 byte file header at the beginning of each log (possibly longer, if specified)
+2. a stream of "records" that appear back to back to back
 
 ## File Header Breakdown
 
@@ -68,7 +76,7 @@ Records are broken into two main types - data records and control records. Data 
 2. an end control record - this declares that the data for this type has no more entries in the log. control type = 1
 3. an update control record - this updates the metadata for the data type. control type = 2
 
-Control records are signified by an `entry_id` of `00` in the record header. From there, the rest of the information about the control record appears in the payload. The shape of the control record payload is as follows
+Start control records are signified by an `entry_id` of `00` in the record header. From there, the rest of the information about the control record appears in the payload. The shape of the control record payload is as follows
 ```
 00                     control type = 0 (Start)              [1 byte]
 02 00 00 00            entry ID = 2                          [4 bytes, uint32]
