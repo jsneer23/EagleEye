@@ -21,7 +21,7 @@ def parse_wpilog_header(buf: bytes) -> int:
         '''
         min_header_len = 12
 
-        if len(buf) < min_header_len:
+        if min_header_len > len(buf):
             raise ValueError(f"file too short. ({len(buf)} bytes)")
         if buf[:len(MAGIC)] != MAGIC:
             raise ValueError(f"bad magic {buf[:len(MAGIC)]!r}, expected {MAGIC!r}")
@@ -30,6 +30,10 @@ def parse_wpilog_header(buf: bytes) -> int:
             raise ValueError(f"unsupported version {version:#06x}")
 
         extra_len, offset = read_uint(buf, offset, 4)
+
+        if offset + extra_len > len(buf):
+            raise ValueError(f"file too short. ({len(buf)} bytes)")
+
         return offset + extra_len
 
 # ---------------------------------------------------------------------------
