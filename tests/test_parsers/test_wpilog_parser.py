@@ -1,19 +1,47 @@
+import struct
+
 import pytest
 
 from eagleeye.parsers.signals import Entry
 from eagleeye.parsers.wpilog_parser import (
+    MAGIC,
+    VERSION,
     apply_control_record,
     decode_header_bitfield,
+    parse_wpilog_header,
     read_finish_record,
     read_metadata_record,
     read_record_header,
     read_start_record,
 )
 
+# ---------------------------------------------------------------------------
+# read wpilog header bytes
+# ---------------------------------------------------------------------------
+valid_magic = MAGIC + struct.pack("<H", VERSION)
+@pytest.mark.parametrize("buf, expected_offset", [
+    (valid_magic + struct.pack("<I", 0), 12),
+    (valid_magic + struct.pack("<I", 3) + b'foo', 15)
+])
+def test_parse_wpilog_header(buf: bytes, expected_offset: int) -> None:
+    assert parse_wpilog_header(buf) == expected_offset
+
+invalid_magic   = b'WPILEG' + struct.pack("<H", VERSION)
+invalid_version = MAGIC     + struct.pack("<H", VERSION + 1)
+@pytest.mark.parametrize("buf, match", [
+    (valid_magic, "too short"),
+    (invalid_magic   + struct.pack("<I", 0), "bad magic"),
+    (invalid_version + struct.pack("<I", 0), "unsupported version"),
+    (valid_magic     + struct.pack("<I", 3), "too short"),
+])
+def test_parse_wpilog_header_raises(buf: bytes, match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        parse_wpilog_header(buf)
 
 # ---------------------------------------------------------------------------
 # record header helpers
 # ---------------------------------------------------------------------------
+
 @pytest.mark.parametrize("bitfield, expected", [
     (0b1111_0000_0000, (1, 1, 1)),
     (0b1111_1111, (4, 4, 16)),
