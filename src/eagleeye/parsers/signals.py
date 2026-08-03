@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from bisect import bisect_left, bisect_right
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from eagleeye.parsers.byte_decoders import read_string, read_uint
 
@@ -15,8 +15,8 @@ from eagleeye.parsers.byte_decoders import read_string, read_uint
 class BaseSignal[V](ABC):
     name: str
     type: str
-    timestamps: list[int] = field(default_factory=list)
-    values: list[V] = field(default_factory=list)
+    timestamps: list[int] = field(default_factory=list[int])
+    values: list[V] = field(default_factory=list[V])
 
     @abstractmethod
     def append_payload(self, timestamp: int, payload: bytes) -> None:
@@ -127,7 +127,7 @@ class Entry:
 # signal creation
 # ---------------------------------------------------------------------------
 
-_SIGNAL_TYPES: dict[str, type[BaseSignal]] = {
+_SIGNAL_TYPES: dict[str, type[BaseSignal[Any]]] = {
     "int64":     IntSignal,
     "boolean":   BoolSignal,
     "double":    FloatSignal,
@@ -140,7 +140,7 @@ _SIGNAL_TYPES: dict[str, type[BaseSignal]] = {
     "string[]":  StrArraySignal,
 }
 
-def create_signal(entry: Entry) -> BaseSignal:
+def create_signal(entry: Entry) -> BaseSignal[Any]:
 
     cls = _SIGNAL_TYPES.get(entry.type)
 

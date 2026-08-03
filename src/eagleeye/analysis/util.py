@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from itertools import pairwise
-from typing import TYPE_CHECKING, ClassVar, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 from eagleeye.parsers.signals import BaseSignal
 
@@ -25,7 +25,7 @@ type Intervals = list[Interval]
 # ---------------------------------------------------------------------------
 
 class Context:
-    def __init__(self, signals: Mapping[str, BaseSignal], last_log_timestamp: int) -> None:
+    def __init__(self, signals: Mapping[str, BaseSignal[Any]], last_log_timestamp: int) -> None:
         self.signals = signals
         self._feature_cache: dict = {}
         self.last_log_timestamp = last_log_timestamp
@@ -39,7 +39,7 @@ class Context:
             self._feature_cache[feat.key] = feat.compute(self)
         return self._feature_cache[feat.key]
 
-    def require[S: BaseSignal](self, name: str, kind: type[S]) -> S:
+    def require[S: BaseSignal[Any]](self, name: str, kind: type[S]) -> S:
         sig = self.signals.get(name)
         if sig is None:
             raise NotApplicableError(f"{name} is missing from log")
@@ -118,7 +118,7 @@ class Check(ABC):
     def run(self, ctx: Context) -> CheckResult:
         ...
 
-    def applicable(self, signals: Mapping[str, BaseSignal]) -> bool:
+    def applicable(self, signals: Mapping[str, BaseSignal[Any]]) -> bool:
         return all(name in signals for name in self.required_signals)
 
 # ---------------------------------------------------------------------------

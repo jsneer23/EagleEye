@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from eagleeye.parsers.byte_decoders import read_string, read_uint
 from eagleeye.parsers.signals import BaseSignal, Entry, create_signal
@@ -145,13 +146,13 @@ class LogParser:
         except ValueError as e:
             raise ValueError(f"{self._path}: {e}") from e
 
-    def parse_data(self) -> tuple[dict[str, BaseSignal], int]:
+    def parse_data(self) -> tuple[dict[str, BaseSignal[Any]], int]:
 
         buf = self._buf
         offset = self._record_start
 
         entries: dict[int, Entry] = {}
-        signals: dict[str, BaseSignal] = {}
+        signals: dict[str, BaseSignal[Any]] = {}
         log_end_timestamp: int = 0
 
         while offset < len(buf):
