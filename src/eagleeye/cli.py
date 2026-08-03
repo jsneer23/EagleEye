@@ -27,7 +27,7 @@ console = Console(highlighter=NumberHighlighter(), theme=theme, highlight=True)
 
 def run_all(checks: list[Check], ctx: Context) -> list[CheckResult]:
 
-    results = []
+    results: list[CheckResult] = []
 
     for check in checks:
         try:

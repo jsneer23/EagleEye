@@ -34,7 +34,7 @@ class CameraHealthCheck(Check):
     def run(self, ctx: Context) -> CheckResult:
 
         sev = Severity.OK
-        summary_arr = []
+        summary_arr: list[str] = []
 
         for cam_name, val in self.health_signals.items():
             signal = ctx.require(val, BoolSignal)

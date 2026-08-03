@@ -27,7 +27,7 @@ class PipelineFrame:
     timestamp: int
     capture_ts_us: int
     seq_id: int
-    targets: list[TargetObservation] = field(default_factory=list)
+    targets: list[TargetObservation] = field(default_factory=list[TargetObservation])
 
     @property
     def tag_count(self) -> int:
@@ -82,7 +82,7 @@ def decode_pipeline_result(payload: bytes, log_ts_s: int) -> PipelineFrame:
     _pong, offset = byte_decoders.i64(payload, offset) # time since last rio pong
     count, offset = byte_decoders.u8(payload, offset)
 
-    targets = []
+    targets: list[TargetObservation] = []
 
     for _ in range(count):
         target, offset = _target(payload, offset)

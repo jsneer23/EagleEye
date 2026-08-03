@@ -112,8 +112,8 @@ class EnabledIntervals(Feature[RobotPhases]):
                                                       enabled. values,
                                                       corrupted_log_end)
 
-        auton = []
-        teleop = []
+        auton: list[tuple[int, int]] = []
+        teleop: list[tuple[int, int]] = []
         match_start = 0
 
         for start, end in enabled_intervals:
