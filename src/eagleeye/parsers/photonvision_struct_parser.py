@@ -34,8 +34,8 @@ class PipelineFrame:
         return sum(1 for t in self.targets if t.fiducial_id >= 0)
 
 @dataclass(kw_only=True)
-class CameraSignal(BaseSignal):
-    frames: list[PipelineFrame] = field(default_factory=list)
+class CameraSignal(BaseSignal[PipelineFrame]):
+    frames: list[PipelineFrame] = field(default_factory=list[PipelineFrame])
 
     def append_payload(self, timestamp: int, payload: bytes) -> None:
         self.timestamps.append(timestamp)
