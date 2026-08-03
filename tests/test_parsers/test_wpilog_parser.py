@@ -1,4 +1,6 @@
+import re
 import struct
+from pathlib import Path
 
 import pytest
 
@@ -6,6 +8,7 @@ from eagleeye.parsers.signals import Entry
 from eagleeye.parsers.wpilog_parser import (
     MAGIC,
     VERSION,
+    LogParser,
     apply_control_record,
     decode_header_bitfield,
     parse_wpilog_header,
@@ -165,3 +168,20 @@ def test_apply_control_record_raises(init_entries: dict[int, Entry],
 # ---------------------------------------------------------------------------
 # log parser class
 # ---------------------------------------------------------------------------
+
+def test_init(tmp_path: Path) -> None:
+    valid_header = MAGIC + struct.pack("<H", VERSION) + struct.pack("<I", 0)
+    path = tmp_path / "test.wpilog"
+    path.write_bytes(valid_header)
+    parser = LogParser(path)
+    assert parser._record_start == 12
+
+def test_init_raises_on_missing_file(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        LogParser(tmp_path / "nonexistent.wpilog")
+
+def test_init_raises_on_malformed_log(tmp_path: Path) -> None:
+    path = tmp_path / "test.wpilog"
+    path.write_bytes(MAGIC)
+    with pytest.raises(ValueError, match=re.escape(str(path))):
+        LogParser(path)

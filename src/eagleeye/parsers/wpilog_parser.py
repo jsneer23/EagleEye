@@ -138,7 +138,7 @@ class LogParser:
             with open(self._path, "rb") as fh:
                 self._buf = fh.read()
         except OSError as e:
-            raise ValueError(f"could not read {self._path}: {e}") from e
+            raise FileNotFoundError(f"could not read {self._path}: {e}") from e
 
         try:
             self._record_start = parse_wpilog_header(self._buf)
