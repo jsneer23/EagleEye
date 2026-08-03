@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from itertools import pairwise
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
 
 from eagleeye.parsers.signals import BaseSignal
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Iterator
 
     from rich.console import Console, RenderableType
 
@@ -27,7 +28,7 @@ type Intervals = list[Interval]
 class Context:
     def __init__(self, signals: Mapping[str, BaseSignal[Any]], last_log_timestamp: int) -> None:
         self.signals = signals
-        self._feature_cache: dict = {}
+        self._feature_cache: dict[str, FeatureResult] = {}
         self.last_log_timestamp = last_log_timestamp
 
     def print_features(self, console: Console) -> None:
@@ -37,7 +38,7 @@ class Context:
     def feature[T: FeatureResult](self, feat: Feature[T]) -> T:
         if feat.key not in self._feature_cache:
             self._feature_cache[feat.key] = feat.compute(self)
-        return self._feature_cache[feat.key]
+        return cast(T, self._feature_cache[feat.key])
 
     def require[S: BaseSignal[Any]](self, name: str, kind: type[S]) -> S:
         sig = self.signals.get(name)
@@ -77,6 +78,8 @@ class NotApplicableError(Exception):
     def __init__(self, reason: str) -> None:
         self.reason = reason
 
+type DetailValue = float | int | str
+
 @dataclass
 class CheckResult:
     '''
@@ -86,8 +89,8 @@ class CheckResult:
     name: str
     severity: Severity
     summary: str
-    details: dict[str, float | int | str] = field(default_factory=dict)
-    intervals: list[tuple[float, float]] = field(default_factory=list)
+    details: Mapping[str, DetailValue] = field(default_factory=Mapping[str, DetailValue]) #TODO look at this structure #noqa:E501
+    intervals: list[tuple[float, float]] = field(default_factory=list[tuple[float, float]])
 
     def __str__(self) -> str:
         return f"[{self.severity.value.upper()}] {self.name}: {self.summary}"
