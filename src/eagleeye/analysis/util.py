@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from itertools import pairwise
@@ -10,7 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
 from eagleeye.parsers.signals import BaseSignal
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Mapping
 
     from rich.console import Console, RenderableType
 
@@ -89,7 +88,7 @@ class CheckResult:
     name: str
     severity: Severity
     summary: str
-    details: Mapping[str, DetailValue] = field(default_factory=Mapping[str, DetailValue]) #TODO look at this structure #noqa:E501
+    details: Mapping[str, DetailValue] = field(default_factory=dict[str, DetailValue]) #TODO look at this structure #noqa:E501
     intervals: list[tuple[float, float]] = field(default_factory=list[tuple[float, float]])
 
     def __str__(self) -> str:
