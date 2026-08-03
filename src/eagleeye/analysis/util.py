@@ -38,7 +38,7 @@ class Context:
     def feature[T: FeatureResult](self, feat: Feature[T]) -> T:
         if feat.key not in self._feature_cache:
             self._feature_cache[feat.key] = feat.compute(self)
-        return cast(T, self._feature_cache[feat.key])
+        return cast("T", self._feature_cache[feat.key])
 
     def require[S: BaseSignal[Any]](self, name: str, kind: type[S]) -> S:
         sig = self.signals.get(name)
