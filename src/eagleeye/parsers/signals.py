@@ -142,15 +142,14 @@ _SIGNAL_TYPES: dict[str, type[BaseSignal[Any]]] = {
 
 def create_signal(entry: Entry) -> BaseSignal[Any]:
 
-    cls = _SIGNAL_TYPES.get(entry.type)
-
-    if cls is not None:
-        return cls(name=entry.name, type=entry.type)
-
-    if (entry.type == "json" or
+    if entry.type in _SIGNAL_TYPES:
+        cls = _SIGNAL_TYPES[entry.type]
+    elif (entry.type == "json" or
         entry.type.startswith(("proto:", "struct:", "photonstruct:")) or
         entry.type.endswith("schema")
     ):
-        return ByteSignal(name=entry.name, type=entry.type)
+        cls = ByteSignal
+    else:
+        raise ValueError(f"Unhandled type {entry.type!r} for entry {entry.name!r}")
 
-    raise ValueError(f"Unhandled type {entry.type!r} for entry {entry.name!r}")
+    return cls(name=entry.name, type=entry.type)
