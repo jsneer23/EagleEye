@@ -10,7 +10,7 @@ from eagleeye.analysis.util import (
     Severity,
     us_to_s,
 )
-from eagleeye.parsers.signals import BoolSignal, FloatSignal
+from eagleeye.signals import BoolSignal, FloatSignal
 
 
 # ---------------------------------------------------------------------------

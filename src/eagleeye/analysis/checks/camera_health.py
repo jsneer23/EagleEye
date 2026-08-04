@@ -2,7 +2,7 @@ from collections.abc import Iterator
 
 from eagleeye.analysis.features import ROBOT_PHASES
 from eagleeye.analysis.util import NotApplicableError
-from eagleeye.parsers.signals import BoolSignal
+from eagleeye.signals import BoolSignal
 
 from ..util import Check, CheckResult, Context, Severity
 

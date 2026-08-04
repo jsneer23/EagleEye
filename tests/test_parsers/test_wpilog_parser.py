@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from eagleeye.parsers.signals import Entry
 from eagleeye.parsers.wpilog_parser import (
     MAGIC,
     VERSION,
@@ -17,6 +16,7 @@ from eagleeye.parsers.wpilog_parser import (
     read_record_header,
     read_start_record,
 )
+from eagleeye.signals import Entry
 
 # ---------------------------------------------------------------------------
 # read wpilog header bytes
@@ -185,3 +185,6 @@ def test_init_raises_on_malformed_log(tmp_path: Path) -> None:
     path.write_bytes(MAGIC)
     with pytest.raises(ValueError, match=re.escape(str(path))):
         LogParser(path)
+
+def test_apply_data_record() -> None:
+    pass

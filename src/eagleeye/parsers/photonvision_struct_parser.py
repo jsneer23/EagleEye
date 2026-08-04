@@ -4,8 +4,8 @@ import struct
 from dataclasses import dataclass, field
 from typing import Any
 
-from eagleeye.parsers import byte_decoders
-from eagleeye.parsers.signals import BaseSignal
+from eagleeye import byte_decoders
+from eagleeye.signals import BaseSignal
 
 # ---------------------------------------------------------------------------
 # photonvision pipeline result dataclasses

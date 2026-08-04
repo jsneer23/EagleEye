@@ -3,7 +3,7 @@ from collections.abc import Callable
 
 import pytest
 
-from eagleeye.parsers.byte_decoders import f32, f64, i16, i32, i64, read_string, read_uint, u8
+from eagleeye.byte_decoders import f32, f64, i16, i32, i64, read_string, read_uint, u8
 
 
 @pytest.mark.parametrize("buf, offset, read_width, result", [

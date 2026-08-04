@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from eagleeye.parsers.signals import (
+from eagleeye.signals import (
     BaseSignal,
     ByteSignal,
     Entry,

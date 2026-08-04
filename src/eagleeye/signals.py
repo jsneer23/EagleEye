@@ -5,7 +5,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
-from eagleeye.parsers.byte_decoders import read_string, read_uint
+from eagleeye.byte_decoders import read_string, read_uint
 
 # ---------------------------------------------------------------------------
 # abstract and base payload dataclasses

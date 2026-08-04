@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Any
 
-from eagleeye.parsers.byte_decoders import read_string, read_uint
-from eagleeye.parsers.signals import BaseSignal, Entry, create_signal
+from eagleeye.byte_decoders import read_string, read_uint
+from eagleeye.signals import BaseSignal, Entry, create_signal
 
 # ---------------------------------------------------------------------------
 # wpilog file constants
@@ -126,6 +126,23 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
     return offset
 
 # ---------------------------------------------------------------------------
+# data record decoding helpers
+# ---------------------------------------------------------------------------
+
+def apply_data_record(entry: Entry,
+                      timestamp: int,
+                      payload: bytes,
+                      signals: dict[str, BaseSignal[Any]]) -> None:
+
+    sig = signals.get(entry.name)
+
+    if sig is None:
+        sig = create_signal(entry)
+        signals[entry.name] = sig
+
+    sig.append_payload(timestamp, payload)
+
+# ---------------------------------------------------------------------------
 # log parser class
 # ---------------------------------------------------------------------------
 
@@ -164,20 +181,14 @@ class LogParser:
             if entry_id == 0:
                 apply_control_record(payload, 0, entries)
             else:
-                entry = entries.get(entry_id)
 
-                if entry is None:
-                    raise ValueError(f"Unknown entry id {entry_id} at offset {offset}")
+                try:
+                    entry = entries[entry_id]
+                except KeyError:
+                    raise ValueError(f"Unknown entry id {entry_id} at offset {offset}") from None
 
-                sig = signals.get(entry.name)
-
-                if sig is None:
-                    sig = create_signal(entry)
-                    signals[entry.name] = sig
-
+                apply_data_record(entry, timestamp, payload, signals)
                 log_end_timestamp = max(timestamp, log_end_timestamp)
-
-                sig.append_payload(timestamp, payload)
 
         if offset != len(buf):
             raise ValueError(f"trailing bytes or truncation: stopped at {offset} of {len(buf)}")
