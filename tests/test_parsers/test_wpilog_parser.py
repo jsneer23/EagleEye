@@ -1,6 +1,7 @@
 import re
 import struct
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -9,6 +10,7 @@ from eagleeye.parsers.wpilog_parser import (
     VERSION,
     LogParser,
     apply_control_record,
+    apply_data_record,
     decode_header_bitfield,
     parse_wpilog_header,
     read_finish_record,
@@ -16,7 +18,7 @@ from eagleeye.parsers.wpilog_parser import (
     read_record_header,
     read_start_record,
 )
-from eagleeye.signals import Entry
+from eagleeye.signals import BaseSignal, Entry, IntSignal, create_signal
 
 # ---------------------------------------------------------------------------
 # read wpilog header bytes
@@ -186,5 +188,23 @@ def test_init_raises_on_malformed_log(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=re.escape(str(path))):
         LogParser(path)
 
-def test_apply_data_record() -> None:
-    pass
+def test_apply_data_record_creates_signal() -> None:
+    payload = struct.pack("<q", 12000)
+    signals: dict[str, BaseSignal[Any]] = {}          # empty
+    entry = Entry(1, "voltage", "int64", "")
+    apply_data_record(entry, 1000, payload, signals)
+
+    assert "voltage" in signals                        # signal was created & stored
+    assert isinstance(signals["voltage"], IntSignal)   # right type
+    assert signals["voltage"].timestamps == [1000]     # payload applied
+
+def test_apply_data_record_reuses_existing_signal() -> None:
+    payload = struct.pack("<q", 12000)
+    existing = create_signal(Entry(1, "voltage", "int64", ""))
+    existing.append_payload(500, payload)             # already has one value
+    signals = {"voltage": existing}
+
+    apply_data_record(Entry(1, "voltage", "int64", ""), 1000, payload, signals)
+
+    assert signals["voltage"] is existing              # SAME object, not recreated
+    assert existing.timestamps == [500, 1000]          # appended to existing, not replaced

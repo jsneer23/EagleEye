@@ -101,7 +101,7 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
             existing = entries[entry.entry_id].name
             raise ValueError(f"start control record {entry.name} is attempting to overwrite an"
                              f" existing log {existing} at entry_id {entry.entry_id}. log may be"
-                             f" malformed")
+                             f" malformed.")
 
         entries[entry.entry_id] = entry
 
