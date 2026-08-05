@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+from eagleeye.errors import LogFormatError
 from eagleeye.parsers.wpilog_parser import (
     MAGIC,
     VERSION,
@@ -14,9 +15,9 @@ from eagleeye.parsers.wpilog_parser import (
     decode_header_bitfield,
     parse_wpilog_header,
     read_finish_record,
-    read_metadata_record,
     read_record_header,
     read_start_record,
+    update_metadata_record,
 )
 from eagleeye.signals import BaseSignal, Entry, IntSignal, create_signal
 
@@ -40,7 +41,7 @@ invalid_version = MAGIC     + struct.pack("<H", VERSION + 1)
     (valid_magic     + struct.pack("<I", 3), "too short"),
 ])
 def test_parse_wpilog_header_raises(buf: bytes, match: str) -> None:
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(LogFormatError, match=match):
         parse_wpilog_header(buf)
 
 # ---------------------------------------------------------------------------
@@ -87,7 +88,7 @@ def test_read_record_header_raises_past_end() -> None:
     negatively test record header raises value error if buffer is too short
     '''
     buf = bytes.fromhex('0020001e1a1d')
-    with pytest.raises(ValueError):
+    with pytest.raises(LogFormatError):
         read_record_header(buf, 1)
 
 # ---------------------------------------------------------------------------
@@ -113,7 +114,7 @@ def test_read_start_record_raises_on_truncated() -> None:
     negative test record header raises value error if header is malformed
     '''
     truncated = '11 02000000 07000000 636f6e'
-    with pytest.raises(ValueError):
+    with pytest.raises(LogFormatError):
         read_start_record(bytes.fromhex(truncated), 1)
 
 def test_read_finish_record() -> None:
@@ -128,7 +129,7 @@ def test_read_metadata_record() -> None:
     # 07000000            entry_id = 7
     # 02000000 7b7d       metadata: len=2, "{}"
     buf = bytes.fromhex("00 07000000 02000000 7b7d")   # leading 00 skipped
-    assert read_metadata_record(buf, 1) == (7, "{}", 11)
+    assert update_metadata_record(buf, 1) == (7, "{}", 11)
 
 #      offset   type  entry id   name len   name             type len   type           metadata len  metadata #noqa: E501
 start   = '11   00    02000000   07000000   636f6e736f6c65   06000000   737472696e67   03000000     666F6F' #noqa: E501
@@ -164,7 +165,7 @@ def test_apply_control_record_raises(init_entries: dict[int, Entry],
                                      bytestr: str,
                                      offset: int,) -> None:
     buf = bytes.fromhex(bytestr)
-    with pytest.raises(ValueError):
+    with pytest.raises(LogFormatError):
         apply_control_record(buf, offset, init_entries)
 
 # ---------------------------------------------------------------------------
@@ -185,7 +186,7 @@ def test_init_raises_on_missing_file(tmp_path: Path) -> None:
 def test_init_raises_on_malformed_log(tmp_path: Path) -> None:
     path = tmp_path / "test.wpilog"
     path.write_bytes(MAGIC)
-    with pytest.raises(ValueError, match=re.escape(str(path))):
+    with pytest.raises(LogFormatError, match=re.escape(str(path))):
         LogParser(path)
 
 def test_apply_data_record_creates_signal() -> None:

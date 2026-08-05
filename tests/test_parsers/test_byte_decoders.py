@@ -4,6 +4,7 @@ from collections.abc import Callable
 import pytest
 
 from eagleeye.byte_decoders import f32, f64, i16, i32, i64, read_string, read_uint, u8
+from eagleeye.errors import LogFormatError
 
 
 @pytest.mark.parametrize("buf, offset, read_width, result", [
@@ -31,9 +32,9 @@ def test_read_uint(buf: bytes, offset: int, read_width: int, result: tuple[str, 
 ])
 def test_uint_raises_past_end(buf: bytes, offset: int, read_width: int) -> None:
     '''
-    negatively test read_uint raises ValueError (malformed logfile)
+    negatively test read_uint raises LogFormatError (malformed logfile)
     '''
-    with pytest.raises(ValueError):
+    with pytest.raises(LogFormatError):
         read_uint(buf, offset, read_width)
 
 @pytest.mark.parametrize("buf, offset, result", [
@@ -49,18 +50,18 @@ def test_func_read_string_value(buf: bytes, offset: int, result: tuple[str, int]
 
 def test_read_string_raises_on_truncated_text() -> None:
     '''
-    negatively test reading past the buffer end raises ValueError (malformed logfile)
+    negatively test reading past the buffer end raises LogFormatError (malformed logfile)
     '''
     buf = struct.pack("<I", 5) + b"ab"
-    with pytest.raises(ValueError):
+    with pytest.raises(LogFormatError):
         read_string(buf, 0)
 
 def test_read_string_raises_on_invalid_utf8() -> None:
     '''
-    negatively test invalid utf-8 raises ValueError (malformed logfile)
+    negatively test invalid utf-8 raises LogFormatError (malformed logfile)
     '''
     buf = struct.pack("<I", 2) + b"\xff\xfe"
-    with pytest.raises(ValueError):
+    with pytest.raises(LogFormatError):
         read_string(buf, 0)
 
 u8_buff =  [ 0x00, 0x2A, 0xFF]
@@ -103,7 +104,7 @@ def test_func_reads_byte_value(f: Callable,
 )
 def test_f_raises_past_end(f: Callable) -> None:
     '''
-    negatively test reading past the buffer end raises ValueError (malformed logfile)
+    negatively test reading past the buffer end raises LogFormatError (malformed logfile)
     '''
-    with pytest.raises(ValueError):
+    with pytest.raises(LogFormatError):
         f(bytes([]), 0)

@@ -1,5 +1,7 @@
 import struct
 
+from eagleeye.errors import LogFormatError
+
 
 # ---------------------------------------------------------------------------
 # byte decoder bounds check
@@ -9,7 +11,7 @@ def _check_bounds(offset: int, read_width: int, length: int) -> None:
     raise ValueError if reading `read_width` bytes at `offset` runs past the buffer end
     '''
     if offset + read_width > length:
-        raise ValueError(
+        raise LogFormatError(
             f"read of {read_width} bytes at {offset} terminates past the end of the file"
             f" ({length}). log may be malformed/truncated."
         )
@@ -24,7 +26,7 @@ def read_uint(buf: bytes, offset: int, read_width: int) -> tuple[int, int]:
     as well as the value read in little endian
     '''
     if read_width <= 0:
-        raise ValueError(f"buffer `read_width` must be positive, got {read_width}."
+        raise LogFormatError(f"buffer `read_width` must be positive, got {read_width}."
                          f" log may be malformed.")
 
     _check_bounds(offset, read_width, len(buf))
@@ -46,7 +48,7 @@ def read_string(buf: bytes, offset: int) -> tuple[str, int]:
     try:
         text = buf[offset:end].decode("utf-8")
     except UnicodeDecodeError as e:
-        raise ValueError(
+        raise LogFormatError(
             f"invalid utf-8 conversion for string of length {read_width} at offset {offset}."
             f" log may be malformed."
         ) from e

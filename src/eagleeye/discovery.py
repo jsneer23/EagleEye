@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from .config import LOGS
+from eagleeye.config import LOGS
+from eagleeye.errors import safe
 
 
 # ---------------------------------------------------------------------------
@@ -13,7 +14,7 @@ def match_dir(event_code: str, match_code: str) -> Path:
     '''
     p = (LOGS / event_code / match_code).resolve()
     if not p.is_relative_to(LOGS.resolve()):
-        raise ValueError(f"illegal input: {event_code}/{match_code}")
+        raise ValueError(f"illegal input: {safe(event_code)}/{safe(match_code)}")
     return p
 
 @dataclass

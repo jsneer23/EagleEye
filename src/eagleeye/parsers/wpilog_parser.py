@@ -1,8 +1,35 @@
+import unicodedata
 from pathlib import Path
 from typing import Any
 
 from eagleeye.byte_decoders import read_string, read_uint
+from eagleeye.errors import LogFormatError, safe
 from eagleeye.signals import BaseSignal, Entry, create_signal
+
+# ---------------------------------------------------------------------------
+# sanitize inputs
+# ---------------------------------------------------------------------------
+_MAX_NAME = 256
+
+def clean_name(raw: str) -> str:
+    if len(raw) > _MAX_NAME:
+        raise LogFormatError(f"entry name is {len(raw)} chars (max {_MAX_NAME})")
+
+    name = unicodedata.normalize("NFC", raw)
+
+    for ch in name:
+        if unicodedata.category(ch) in {"Cc", "Cf", "Co", "Cs", "Cn"}:
+            raise LogFormatError(f"entry name contains disallowed character U+{ord(ch):04X}")
+    return name
+
+_MAX_TYPE = 128
+
+def check_type(raw: str) -> str:
+    if len(raw) > _MAX_TYPE:
+        raise LogFormatError(f"entry type is {len(raw)} chars (max {_MAX_TYPE})")
+    if not raw.isascii() or not raw.isprintable():
+        raise LogFormatError("entry type contains non-ASCII or control characters")
+    return raw
 
 # ---------------------------------------------------------------------------
 # wpilog file constants
@@ -23,17 +50,18 @@ def parse_wpilog_header(buf: bytes) -> int:
         min_header_len = 12
 
         if min_header_len > len(buf):
-            raise ValueError(f"file too short. ({len(buf)} bytes)")
+            raise LogFormatError(f"file too short. ({len(buf)} bytes)")
         if buf[:len(MAGIC)] != MAGIC:
-            raise ValueError(f"bad magic {buf[:len(MAGIC)]!r}, expected {MAGIC!r}")
+            raise LogFormatError(f"bad magic {buf[:len(MAGIC)].hex()}, expected {MAGIC.hex()}")
         version, offset = read_uint(buf, len(MAGIC), 2)
         if version != VERSION:
-            raise ValueError(f"unsupported version {version:#06x}")
+            raise LogFormatError(f"unsupported version {version:#06x}")
 
         extra_len, offset = read_uint(buf, offset, 4)
 
         if offset + extra_len > len(buf):
-            raise ValueError(f"file too short. ({len(buf)} bytes)")
+            raise LogFormatError(f"file too short: header declares {extra_len} extra bytes at"
+                                 f" offset {offset} but file is {len(buf)} bytes")
 
         return offset + extra_len
 
@@ -73,10 +101,10 @@ def read_start_record(buf: bytes, offset: int) -> tuple[Entry, int]:
 
     entry_id, offset = read_uint(buf, offset, 4)
     name,     offset = read_string(buf, offset)
-    type_,    offset = read_string(buf, offset)
+    entry_type,    offset = read_string(buf, offset)
     metadata, offset = read_string(buf, offset)
 
-    return Entry(entry_id, name, type_, metadata), offset
+    return Entry(entry_id, clean_name(name), check_type(entry_type), metadata), offset
 
 def read_finish_record(buf: bytes, offset: int) -> tuple[int, int]:
 
@@ -84,7 +112,7 @@ def read_finish_record(buf: bytes, offset: int) -> tuple[int, int]:
 
     return entry_id, offset
 
-def read_metadata_record(buf: bytes, offset: int) -> tuple[int, str, int]:
+def update_metadata_record(buf: bytes, offset: int) -> tuple[int, str, int]:
 
     entry_id, offset = read_uint(buf, offset, 4)
     metadata, offset = read_string(buf, offset)
@@ -99,9 +127,9 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
         entry, offset = read_start_record(buf, offset)
         if entry.entry_id in entries:
             existing = entries[entry.entry_id].name
-            raise ValueError(f"start control record {entry.name} is attempting to overwrite an"
-                             f" existing log {existing} at entry_id {entry.entry_id}. log may be"
-                             f" malformed.")
+            raise LogFormatError(f"start control record {safe(entry.name)} is attempting to"
+                                 f" overwrite an existing log {safe(existing)} at entry_id"
+                                 f" {entry.entry_id}. log may be malformed.")
 
         entries[entry.entry_id] = entry
 
@@ -111,17 +139,15 @@ def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> 
         # _entry_id deliberately unused for now
 
     elif control_type == 2:
-        entry_id, metadata, offset = read_metadata_record(buf, offset)
+        entry_id, metadata, offset = update_metadata_record(buf, offset)
         if entry_id in entries:
             entries[entry_id].metadata = metadata
         else:
-            raise ValueError(
-                f"Unknown entry_id {entry_id} for updating metadata at offset"
-                f" {offset}. Log may be corrupted."
-            )
+            raise LogFormatError(f"Unknown entry_id {entry_id} for updating metadata at offset"
+                                 f" {offset}. Log may be corrupted.")
 
     else:
-        raise ValueError(f"Unknown control type {control_type} at offset {offset}")
+        raise LogFormatError(f"Unknown control type {control_type} at offset {offset}")
 
     return offset
 
@@ -160,8 +186,8 @@ class LogParser:
 
         try:
             self._record_start = parse_wpilog_header(self._buf)
-        except ValueError as e:
-            raise ValueError(f"{self._path}: {e}") from e
+        except LogFormatError as e:
+            raise LogFormatError(f"{self._path}: {e}") from e
 
     def parse_data(self) -> tuple[dict[str, BaseSignal[Any]], int]:
 
@@ -185,12 +211,13 @@ class LogParser:
                 try:
                     entry = entries[entry_id]
                 except KeyError:
-                    raise ValueError(f"Unknown entry id {entry_id} at offset {offset}") from None
+                    e = LogFormatError(f"unknown entry_id {entry_id} at offset {offset}")
+                    raise e from None
 
                 apply_data_record(entry, timestamp, payload, signals)
                 log_end_timestamp = max(timestamp, log_end_timestamp)
 
         if offset != len(buf):
-            raise ValueError(f"trailing bytes or truncation: stopped at {offset} of {len(buf)}")
+            raise LogFormatError(f"trailing bytes or truncation: stopped at {offset} of {len(buf)}")
 
         return signals, log_end_timestamp
