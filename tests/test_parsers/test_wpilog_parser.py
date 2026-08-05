@@ -174,8 +174,34 @@ def test_apply_control_record_raises(init_entries: dict[int, Entry],
         apply_control_record(buf, offset, init_entries)
 
 # ---------------------------------------------------------------------------
+# data record decoding helpers
+# ---------------------------------------------------------------------------
+
+def test_apply_data_record_creates_signal() -> None:
+    payload = struct.pack("<q", 12000)
+    signals: dict[str, BaseSignal[Any]] = {}
+    entry = Entry(1, "voltage", "int64", "")
+    apply_data_record(entry, 1000, payload, signals)
+
+    assert "voltage" in signals
+    assert isinstance(signals["voltage"], IntSignal)
+    assert signals["voltage"].timestamps == [1000]
+
+def test_apply_data_record_reuses_existing_signal() -> None:
+    payload = struct.pack("<q", 12000)
+    existing = create_signal(Entry(1, "voltage", "int64", ""))
+    existing.append_payload(500, payload)
+    signals = {"voltage": existing}
+
+    apply_data_record(Entry(1, "voltage", "int64", ""), 1000, payload, signals)
+
+    assert signals["voltage"] is existing
+    assert existing.timestamps == [500, 1000]
+
+# ---------------------------------------------------------------------------
 # record decoding helpers
 # ---------------------------------------------------------------------------
+
 @pytest.mark.parametrize("buf, offset, size, expected", [
     (b"", 0, 0, (b"", 0)),
     (b"a", 0, 1, (b"a", 1)),
@@ -198,40 +224,20 @@ def test_read_record_raises(buf: bytes, offset: int, size: int) -> None:
 # log parser class
 # ---------------------------------------------------------------------------
 
-def test_init(tmp_path: Path) -> None:
+def test_from_file(tmp_path: Path) -> None:
     valid_header = MAGIC + struct.pack("<H", VERSION) + struct.pack("<I", 0)
     path = tmp_path / "test.wpilog"
     path.write_bytes(valid_header)
     parser = LogParser.from_file(path)
     assert parser._record_start == 12
 
-def test_init_raises_on_missing_file(tmp_path: Path) -> None:
+def test_from_file_raises_on_missing_file(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         LogParser.from_file(tmp_path / "nonexistent.wpilog")
 
-def test_init_raises_on_malformed_log(tmp_path: Path) -> None:
-    path = tmp_path / "test.wpilog"
-    path.write_bytes(MAGIC)
-    with pytest.raises(LogFormatError, match=re.escape(str(path))):
-        LogParser.from_file(path)
+def test_init_raises_on_malformed_log() -> None:
+    path = "test_path/test.wpilog"
+    with pytest.raises(LogFormatError, match=re.escape(path)):
+        LogParser(MAGIC, path)
 
-def test_apply_data_record_creates_signal() -> None:
-    payload = struct.pack("<q", 12000)
-    signals: dict[str, BaseSignal[Any]] = {}
-    entry = Entry(1, "voltage", "int64", "")
-    apply_data_record(entry, 1000, payload, signals)
 
-    assert "voltage" in signals
-    assert isinstance(signals["voltage"], IntSignal)
-    assert signals["voltage"].timestamps == [1000]
-
-def test_apply_data_record_reuses_existing_signal() -> None:
-    payload = struct.pack("<q", 12000)
-    existing = create_signal(Entry(1, "voltage", "int64", ""))
-    existing.append_payload(500, payload)
-    signals = {"voltage": existing}
-
-    apply_data_record(Entry(1, "voltage", "int64", ""), 1000, payload, signals)
-
-    assert signals["voltage"] is existing
-    assert existing.timestamps == [500, 1000]
