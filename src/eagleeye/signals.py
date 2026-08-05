@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 from eagleeye.byte_decoders import read_string, read_uint
+from eagleeye.errors import PayloadError, safe
 
 # ---------------------------------------------------------------------------
 # abstract and base payload dataclasses
@@ -18,8 +19,18 @@ class BaseSignal[V](ABC):
     timestamps: list[int] = field(default_factory=list[int])
     values: list[V] = field(default_factory=list[V])
 
-    @abstractmethod
     def append_payload(self, timestamp: int, payload: bytes) -> None:
+        """decode and append payload. raises PayloadError on malformed input."""
+        try:
+            decoded = self._decode_payload(payload)
+        except (struct.error, UnicodeDecodeError) as e:
+            raise PayloadError(f"invalid payload for {self.name!r} ({self.type})") from e
+
+        self.timestamps.append(timestamp)
+        self.values.append(decoded)
+
+    @abstractmethod
+    def _decode_payload(self, payload: bytes) -> V:
         ...
 
     def zip_between_ts(self,
@@ -35,7 +46,7 @@ class BaseSignal[V](ABC):
         return zip(self.timestamps[i:j], self.values[i:j], strict=True)
 
 @dataclass(kw_only=True)
-class StructSignal[V](BaseSignal[V]):
+class PrimitiveSignal[V](BaseSignal[V]):
 
     _fmt: str = field(init=False)
     _FORMATS: ClassVar[dict[str, str]]  = {
@@ -56,61 +67,56 @@ class StructSignal[V](BaseSignal[V]):
     def __post_init__(self) -> None:
         self._fmt = self._FORMATS[self.type]
 
-    def append_payload(self, timestamp: int, payload: bytes) -> None:
-        self.timestamps.append(timestamp)
-        self.values.append(struct.unpack_from(self._fmt, payload, 0)[0])
+    def _decode_payload(self, payload: bytes) -> V:
+        return struct.unpack_from(self._fmt, payload, 0)[0]
 
 @dataclass(kw_only=True)
-class StructArraySignal[V](StructSignal[list[V]]):
+class PrimitiveArraySignal[T](PrimitiveSignal[list[T]]):
 
-    def append_payload(self, timestamp: int, payload: bytes) -> None:
-        self.timestamps.append(timestamp)
-        self.values.append([v for (v,) in struct.iter_unpack(self._fmt, payload)])
+    def _decode_payload(self, payload: bytes) -> list[T]:
+        return [v for (v,) in struct.iter_unpack(self._fmt, payload)]
 
 @dataclass(kw_only=True)
-class IntSignal(StructSignal[int]):
+class IntSignal(PrimitiveSignal[int]):
     """int scalar signal."""
 @dataclass(kw_only=True)
-class FloatSignal(StructSignal[float]):
+class FloatSignal(PrimitiveSignal[float]):
    """float scalar signal."""
 @dataclass(kw_only=True)
-class BoolSignal(StructSignal[bool]):
+class BoolSignal(PrimitiveSignal[bool]):
     """bool scalar signal."""
 @dataclass(kw_only=True)
-class IntArraySignal(StructArraySignal[int]):
+class IntArraySignal(PrimitiveArraySignal[int]):
     """list[int] scalar signal."""
 @dataclass(kw_only=True)
-class FloatArraySignal(StructArraySignal[float]):
+class FloatArraySignal(PrimitiveArraySignal[float]):
     """list[float] scalar signal."""
 @dataclass(kw_only=True)
-class BoolArraySignal(StructArraySignal[bool]):
+class BoolArraySignal(PrimitiveArraySignal[bool]):
     """list[bool] scalar signal."""
 
 @dataclass(kw_only=True)
 class StrSignal(BaseSignal[str]):
 
-    def append_payload(self, timestamp: int, payload: bytes) -> None:
-        self.timestamps.append(timestamp)
-        self.values.append(payload.decode("utf-8"))
+    def _decode_payload(self, payload: bytes) -> str:
+        return payload.decode("utf-8")
 
 @dataclass(kw_only=True)
 class StrArraySignal(BaseSignal[list[str]]):
 
-    def append_payload(self, timestamp: int, payload: bytes) -> None:
-        self.timestamps.append(timestamp)
+    def _decode_payload(self, payload: bytes) -> list[str]:
         array_length, offset = read_uint(payload, 0, 4)
         items: list[str] = []
         for _ in range(array_length):
             string, offset = read_string(payload, offset)
             items.append(string)
-        self.values.append(items)
+        return items
 
 @dataclass(kw_only=True)
 class ByteSignal(BaseSignal[bytes]):
 
-    def append_payload(self, timestamp: int, payload: bytes) -> None:
-        self.timestamps.append(timestamp)
-        self.values.append(payload)
+    def _decode_payload(self, payload: bytes) -> bytes:
+        return payload
 
 # ---------------------------------------------------------------------------
 # decoding payload dataclass
@@ -150,6 +156,7 @@ def create_signal(entry: Entry) -> BaseSignal[Any]:
     ):
         cls = ByteSignal
     else:
-        raise ValueError(f"Unhandled type {entry.type!r} for entry {entry.name!r}")
+        raise PayloadError(f"unknown entry type {safe(entry.type)}"
+                           " for entry {safe(entry.name)}")
 
     return cls(name=entry.name, type=entry.type)

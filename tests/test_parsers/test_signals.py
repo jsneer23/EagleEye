@@ -2,6 +2,7 @@ from typing import Any
 
 import pytest
 
+from eagleeye.errors import PayloadError
 from eagleeye.signals import (
     BaseSignal,
     ByteSignal,
@@ -41,5 +42,5 @@ def test_create_signal_returns_bytesignal_for_raw_types(type_str: str) -> None:
 
 def test_create_signal_raises_on_unknown_type() -> None:
     entry = Entry(1, "x", "totally_unknown_type", "")
-    with pytest.raises(ValueError, match="Unhandled type"):
+    with pytest.raises(PayloadError, match="unknown entry type"):
         create_signal(entry)
