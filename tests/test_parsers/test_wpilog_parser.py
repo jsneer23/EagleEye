@@ -220,6 +220,7 @@ def test_read_record_raises(buf: bytes, offset: int, size: int) -> None:
     match_str = f"{size} bytes at offset {offset} but only {len(buf) - offset} remain"
     with pytest.raises(LogFormatError, match=match_str):
         read_record(buf, offset, size)
+
 # ---------------------------------------------------------------------------
 # log parser class
 # ---------------------------------------------------------------------------
