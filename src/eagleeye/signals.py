@@ -24,7 +24,7 @@ class BaseSignal[V](ABC):
         try:
             decoded = self._decode_payload(payload)
         except (struct.error, UnicodeDecodeError) as e:
-            raise PayloadError(f"invalid payload for {self.name!r} ({self.type})") from e
+            raise PayloadError(f"invalid payload for {safe(self.name)} ({safe(self.type)})") from e
 
         self.timestamps.append(timestamp)
         self.values.append(decoded)
