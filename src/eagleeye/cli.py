@@ -45,7 +45,7 @@ def main() -> None:
 
     wpilog_path = LogFiles.for_match(event_code, match_code).wpilogs[0]
 
-    signals, last_log_timestamp = LogParser(wpilog_path).parse_data()
+    signals, last_log_timestamp = LogParser.from_file(wpilog_path).parse_data()
     ctx = Context(signals, last_log_timestamp)
 
     checks = run_all(CHECKS, ctx)

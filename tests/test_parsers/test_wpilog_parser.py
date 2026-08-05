@@ -202,18 +202,18 @@ def test_init(tmp_path: Path) -> None:
     valid_header = MAGIC + struct.pack("<H", VERSION) + struct.pack("<I", 0)
     path = tmp_path / "test.wpilog"
     path.write_bytes(valid_header)
-    parser = LogParser(path)
+    parser = LogParser.from_file(path)
     assert parser._record_start == 12
 
 def test_init_raises_on_missing_file(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
-        LogParser(tmp_path / "nonexistent.wpilog")
+        LogParser.from_file(tmp_path / "nonexistent.wpilog")
 
 def test_init_raises_on_malformed_log(tmp_path: Path) -> None:
     path = tmp_path / "test.wpilog"
     path.write_bytes(MAGIC)
     with pytest.raises(LogFormatError, match=re.escape(str(path))):
-        LogParser(path)
+        LogParser.from_file(path)
 
 def test_apply_data_record_creates_signal() -> None:
     payload = struct.pack("<q", 12000)

@@ -192,20 +192,27 @@ def read_record(buf: bytes, offset: int, size: int) -> tuple[bytes, int]:
 
 class LogParser:
 
-    def __init__(self, file_path: str | Path) -> None:
+    def __init__(self, buf: bytes, source: str = "<memory>") -> None:
 
-        self._path = Path(file_path)
-
-        try:
-            with open(self._path, "rb") as fh:
-                self._buf = fh.read()
-        except OSError as e:
-            raise FileNotFoundError(f"could not read {self._path}: {e}") from e
+        self._buf = buf
 
         try:
-            self._record_start = parse_wpilog_header(self._buf)
+            self._record_start = parse_wpilog_header(buf)
         except LogFormatError as e:
-            raise LogFormatError(f"{self._path}: {e}") from e
+            raise LogFormatError(f"{source}: {e}") from e
+
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> "LogParser":
+
+        path = Path(file_path)
+
+        try:
+            with open(path, "rb") as fh:
+                buf = fh.read()
+        except OSError as e:
+            raise FileNotFoundError(f"could not read {path}: {e}") from e
+
+        return cls(buf, str(path))
 
     def parse_data(self) -> tuple[dict[str, BaseSignal[Any]], int]:
 
