@@ -190,21 +190,21 @@ def test_init_raises_on_malformed_log(tmp_path: Path) -> None:
 
 def test_apply_data_record_creates_signal() -> None:
     payload = struct.pack("<q", 12000)
-    signals: dict[str, BaseSignal[Any]] = {}          # empty
+    signals: dict[str, BaseSignal[Any]] = {}
     entry = Entry(1, "voltage", "int64", "")
     apply_data_record(entry, 1000, payload, signals)
 
-    assert "voltage" in signals                        # signal was created & stored
-    assert isinstance(signals["voltage"], IntSignal)   # right type
-    assert signals["voltage"].timestamps == [1000]     # payload applied
+    assert "voltage" in signals
+    assert isinstance(signals["voltage"], IntSignal)
+    assert signals["voltage"].timestamps == [1000]
 
 def test_apply_data_record_reuses_existing_signal() -> None:
     payload = struct.pack("<q", 12000)
     existing = create_signal(Entry(1, "voltage", "int64", ""))
-    existing.append_payload(500, payload)             # already has one value
+    existing.append_payload(500, payload)
     signals = {"voltage": existing}
 
     apply_data_record(Entry(1, "voltage", "int64", ""), 1000, payload, signals)
 
-    assert signals["voltage"] is existing              # SAME object, not recreated
-    assert existing.timestamps == [500, 1000]          # appended to existing, not replaced
+    assert signals["voltage"] is existing
+    assert existing.timestamps == [500, 1000]
