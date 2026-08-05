@@ -157,6 +157,6 @@ def create_signal(entry: Entry) -> BaseSignal[Any]:
         cls = ByteSignal
     else:
         raise PayloadError(f"unknown entry type {safe(entry.type)}"
-                           " for entry {safe(entry.name)}")
+                           f" for entry {safe(entry.name)}")
 
     return cls(name=entry.name, type=entry.type)
