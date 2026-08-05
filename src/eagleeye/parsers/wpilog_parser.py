@@ -169,6 +169,24 @@ def apply_data_record(entry: Entry,
     sig.append_payload(timestamp, payload)
 
 # ---------------------------------------------------------------------------
+# record decoding helpers
+# ---------------------------------------------------------------------------
+
+def read_record(buf: bytes, offset: int, size: int) -> tuple[bytes, int]:
+
+    if size < 0:
+        raise LogFormatError(f"record declares negative size {size} of offset {offset}")
+
+    end = offset + size
+
+    if end > len(buf):
+        raise LogFormatError(
+            f"record declares {size} bytes at offset {offset} "
+            f"but only {len(buf) - offset} remain"
+        )
+    return buf[offset:end], end
+
+# ---------------------------------------------------------------------------
 # log parser class
 # ---------------------------------------------------------------------------
 
@@ -201,11 +219,10 @@ class LogParser:
         while offset < len(buf):
 
             entry_id, payload_size, timestamp, offset = read_record_header(buf, offset)
-            payload = buf[offset:offset+payload_size]
-            offset += payload_size
+            record, offset = read_record(buf, offset, payload_size)
 
             if entry_id == 0:
-                apply_control_record(payload, 0, entries)
+                apply_control_record(record, 0, entries)
             else:
 
                 try:
@@ -214,7 +231,7 @@ class LogParser:
                     e = LogFormatError(f"unknown entry_id {entry_id} at offset {offset}")
                     raise e from None
 
-                apply_data_record(entry, timestamp, payload, signals)
+                apply_data_record(entry, timestamp, record, signals)
                 log_end_timestamp = max(timestamp, log_end_timestamp)
 
         if offset != len(buf):

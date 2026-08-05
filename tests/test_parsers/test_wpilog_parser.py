@@ -15,6 +15,7 @@ from eagleeye.parsers.wpilog_parser import (
     decode_header_bitfield,
     parse_wpilog_header,
     read_finish_record,
+    read_record,
     read_record_header,
     read_start_record,
     update_metadata_record,
@@ -131,6 +132,10 @@ def test_read_metadata_record() -> None:
     buf = bytes.fromhex("00 07000000 02000000 7b7d")   # leading 00 skipped
     assert update_metadata_record(buf, 1) == (7, "{}", 11)
 
+# ---------------------------------------------------------------------------
+# data record decoding helpers
+# ---------------------------------------------------------------------------
+
 #      offset   type  entry id   name len   name             type len   type           metadata len  metadata #noqa: E501
 start   = '11   00    02000000   07000000   636f6e736f6c65   06000000   737472696e67   03000000     666F6F' #noqa: E501
 #      offset   type  entry id   metadata len  metadata
@@ -168,6 +173,27 @@ def test_apply_control_record_raises(init_entries: dict[int, Entry],
     with pytest.raises(LogFormatError):
         apply_control_record(buf, offset, init_entries)
 
+# ---------------------------------------------------------------------------
+# record decoding helpers
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("buf, offset, size, expected", [
+    (b"", 0, 0, (b"", 0)),
+    (b"a", 0, 1, (b"a", 1)),
+    (b"abc", 1, 2, (b"bc", 3)),
+    (b"abcd", 1, 2, (b"bc", 3)),
+])
+def test_read_record(buf: bytes, offset: int, size: int, expected: tuple[bytes, int]) -> None:
+    assert read_record(buf, offset, size) == expected
+
+@pytest.mark.parametrize("buf, offset, size", [
+    (b"", 0, 1),
+    (b"a", 0, 2),
+    (b"a", 1, 1),
+])
+def test_read_record_raises(buf: bytes, offset: int, size: int) -> None:
+    match_str = f"{size} bytes at offset {offset} but only {len(buf) - offset} remain"
+    with pytest.raises(LogFormatError, match=match_str):
+        read_record(buf, offset, size)
 # ---------------------------------------------------------------------------
 # log parser class
 # ---------------------------------------------------------------------------
