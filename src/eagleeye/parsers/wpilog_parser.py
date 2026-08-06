@@ -225,8 +225,8 @@ class LogParser:
 
         while offset < len(buf):
 
-            entry_id, payload_size, timestamp, offset = read_record_header(buf, offset)
-            record, offset = read_record(buf, offset, payload_size)
+            entry_id, record_size, timestamp, offset = read_record_header(buf, offset)
+            record, offset = read_record(buf, offset, record_size)
 
             if entry_id == 0:
                 apply_control_record(record, 0, entries)
