@@ -241,7 +241,7 @@ class LogParser:
                 apply_data_record(entry, timestamp, record, signals)
                 log_end_timestamp = max(timestamp, log_end_timestamp)
 
-        if offset != len(buf):
-            raise LogFormatError(f"trailing bytes or truncation: stopped at {offset} of {len(buf)}")
+        if offset != len(buf): # pragma: no cover - defensive invariant
+            raise RuntimeError(f"parser error: parse completed at {offset} of {len(buf)} bytes")
 
         return signals, log_end_timestamp

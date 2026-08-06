@@ -53,7 +53,7 @@ def record(
     '''
     id_width = _min_width(entry_id)
     size_width =  _min_width(len(payload))
-    ts_width = _min_width(timestamp)
+    ts_width = _min_width(timestamp, max_width = 6)
 
     bitfield = (id_width - 1) | ((size_width - 1) << 2) | ((ts_width - 1) << 4)
 
