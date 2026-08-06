@@ -174,7 +174,7 @@ def apply_data_record(entry: Entry,
 
 def read_record(buf: bytes, offset: int, size: int) -> tuple[bytes, int]:
 
-    if size < 0:
+    if size < 0: # pragma: no cover - record size is read as uint
         raise LogFormatError(f"record declares negative size {size} of offset {offset}")
 
     end = offset + size

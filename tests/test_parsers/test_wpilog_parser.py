@@ -7,11 +7,15 @@ import pytest
 
 from eagleeye.errors import LogFormatError
 from eagleeye.parsers.wpilog_parser import (
+    _MAX_NAME,
+    _MAX_TYPE,
     MAGIC,
     VERSION,
     LogParser,
     apply_control_record,
     apply_data_record,
+    check_type,
+    clean_name,
     decode_header_bitfield,
     parse_wpilog_header,
     read_finish_record,
@@ -23,8 +27,84 @@ from eagleeye.parsers.wpilog_parser import (
 from eagleeye.signals import BaseSignal, Entry, IntSignal, create_signal
 
 # ---------------------------------------------------------------------------
+# sanitize inputs
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("raw", [
+    "",
+    "/Robot/SystemStats/BatteryVoltage",
+    "NT:/FMSInfo/FMSControlData",
+    "DS:enabled",
+    "/Robot/Canivore/Canivore Bus Utilization",
+    "café",
+    "a" * _MAX_NAME,
+])
+def test_clean_name_accepts(raw: str) -> None:
+    assert clean_name(raw) == raw
+
+def test_clean_name_normalizes_to_nfc() -> None:
+    decomposed = "cafe\u0301"
+    composed = "caf\u00e9"
+    assert decomposed != composed
+    assert clean_name(decomposed) == composed
+
+def test_clean_name_normalization_makes_variants_equal() -> None:
+    assert clean_name("cafe\u0301") == clean_name("caf\u00e9")
+
+@pytest.mark.parametrize("raw, codepoint", [
+    ("a\nb", "U+000A"),        # Cc — log injection
+    ("a\x00b", "U+0000"),      # Cc — null
+    ("a\x1b[2Jb", "U+001B"),   # Cc — ANSI escape
+    ("a\u200bb", "U+200B"),    # Cf — zero-width space
+    ("a\u202eb", "U+202E"),    # Cf — RTL override
+    ("a\ue000b", "U+E000"),    # Co — private use
+])
+def test_clean_name_rejects_disallowed_categories(raw: str, codepoint: str) -> None:
+    with pytest.raises(LogFormatError, match=re.escape(codepoint)):
+        clean_name(raw)
+
+def test_clean_name_rejects_over_length() -> None:
+    with pytest.raises(LogFormatError, match=str(_MAX_NAME + 1)):
+        clean_name("a" * (_MAX_NAME + 1))
+
+def test_clean_name_error_does_not_echo_raw_input() -> None:
+    """Messages report the codepoint, never the character itself."""
+    with pytest.raises(LogFormatError) as exc:
+        clean_name("CANARY\u202e")
+    assert "\u202e" not in str(exc.value)
+
+@pytest.mark.parametrize("raw", [
+    "int64", "double", "float", "boolean", "string",
+    "int64[]", "double[]", "string[]",
+    "json",
+    "struct:Pose2d",
+    "photonstruct:PhotonPipelineResult",
+    "proto:SomeMessage",
+    "MyThingschema",
+    "a" * _MAX_TYPE,
+])
+def test_check_type_accepts(raw: str) -> None:
+    assert check_type(raw) == raw
+
+@pytest.mark.parametrize("raw", [
+    "doublé",
+    "ｄｏｕｂｌｅ",
+    "double\n",
+    "double\x00",
+    "double\x1b[2J",
+])
+def test_check_type_rejects(raw: str) -> None:
+    with pytest.raises(LogFormatError):
+        check_type(raw)
+
+def test_check_type_rejects_over_length() -> None:
+    with pytest.raises(LogFormatError, match=str(_MAX_TYPE + 1)):
+        check_type("a" * (_MAX_TYPE + 1))
+
+# ---------------------------------------------------------------------------
 # read wpilog header bytes
 # ---------------------------------------------------------------------------
+
 valid_magic = MAGIC + struct.pack("<H", VERSION)
 @pytest.mark.parametrize("buf, expected_offset", [
     (valid_magic + struct.pack("<I", 0), 12),
