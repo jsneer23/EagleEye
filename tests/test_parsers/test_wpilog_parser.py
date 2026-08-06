@@ -240,5 +240,3 @@ def test_init_raises_on_malformed_log() -> None:
     path = "test_path/test.wpilog"
     with pytest.raises(LogFormatError, match=re.escape(path)):
         LogParser(MAGIC, path)
-
-
