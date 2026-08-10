@@ -81,19 +81,6 @@ def test_multibyte_headers() -> None:
     assert signals["/a"].values == [1.0]
     assert last_ts == 2**40
 
-def test_data_after_finish_is_still_accepted() -> None:
-    '''
-    entries are deliberately not popped on finish — records may be out of order
-    '''
-    buf = log(
-        control(start(1, "/a", DOUBLE)),
-        record(1, 100, d(1.0)),
-        control(finish(1)),
-        record(1, 200, d(2.0)),
-    )
-    signals, _ = LogParser(buf).parse_data()
-    assert signals["/a"].values == [1.0, 2.0]
-
 def test_metadata_update_applies() -> None:
     buf = log(
         control(start(1, "/a", DOUBLE)),
@@ -126,6 +113,16 @@ def test_record_overruns_buffer_raises() -> None:
     )
     with pytest.raises(LogFormatError):
         LogParser(buf[:-3]).parse_data()
+
+def test_data_after_finish_are_rejected() -> None:
+    buf = log(
+        control(start(1, "/a", DOUBLE)),
+        record(1, 100, d(1.0)),
+        control(finish(1)),
+        record(1, 200, d(2.0)),
+    )
+    with pytest.raises(LogFormatError, match="unknown entry_id"):
+        LogParser(buf).parse_data()
 
 # ---------------------------------------------------------------------------
 # truncation error checks

@@ -128,6 +128,7 @@ class Entry:
     name: str
     type: str
     metadata: str
+    timestamp: int
 
 # ---------------------------------------------------------------------------
 # signal creation

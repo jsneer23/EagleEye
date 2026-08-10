@@ -1,4 +1,5 @@
 import unicodedata
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
@@ -80,7 +81,7 @@ def decode_header_bitfield(bitfield: int) -> tuple[int, int, int]:
 
 def read_record_header(buf: bytes, offset: int) -> tuple[int, int, int, int]:
     '''
-    read payload header. see parser/README.md for breakdown
+    see parser/README.md for breakdown
     '''
     # read and decode variable header bitfield
     bitfield, offset = read_uint(buf, offset, 1)
@@ -97,14 +98,14 @@ def read_record_header(buf: bytes, offset: int) -> tuple[int, int, int, int]:
 # control record decoding helpers
 # ---------------------------------------------------------------------------
 
-def read_start_record(buf: bytes, offset: int) -> tuple[Entry, int]:
+def read_start_record(buf: bytes, offset: int, timestamp: int) -> tuple[Entry, int]:
 
     entry_id, offset = read_uint(buf, offset, 4)
     name,     offset = read_string(buf, offset)
     entry_type,    offset = read_string(buf, offset)
     metadata, offset = read_string(buf, offset)
 
-    return Entry(entry_id, clean_name(name), check_type(entry_type), metadata), offset
+    return Entry(entry_id, clean_name(name), check_type(entry_type), metadata, timestamp), offset
 
 def read_finish_record(buf: bytes, offset: int) -> tuple[int, int]:
 
@@ -119,45 +120,46 @@ def update_metadata_record(buf: bytes, offset: int) -> tuple[int, str, int]:
 
     return entry_id, metadata, offset
 
-def apply_control_record(buf: bytes, offset: int, entries: dict[int, Entry]) -> int:
+def apply_control_record(payload: bytes, timestamp: int, entries: dict[int, Entry]) -> None:
 
-    control_type, offset = read_uint(buf, offset, 1)
+    offset: int = 0
+    control_type, offset = read_uint(payload, offset, 1)
 
     if control_type == 0:
-        entry, offset = read_start_record(buf, offset)
+        entry, offset = read_start_record(payload, offset, timestamp)
         if entry.entry_id in entries:
             existing = entries[entry.entry_id].name
             raise LogFormatError(f"start control record {safe(entry.name)} is attempting to"
                                  f" overwrite an existing log {safe(existing)} at entry_id"
-                                 f" {entry.entry_id}. log may be malformed.")
+                                 f" {entry.entry_id}.")
 
         entries[entry.entry_id] = entry
 
     elif control_type == 1:
-        _entry_id, offset = read_finish_record(buf, offset)
-        # in case logs appear out of order don't pop - entries.pop(entry_id, None)
-        # _entry_id deliberately unused for now
+        entry_id, offset = read_finish_record(payload, offset)
+        if entry_id not in entries:
+            raise LogFormatError(f"finish control record with entry_id {entry_id} not in current"
+                                 " list of entries.")
+        del entries[entry_id]
 
     elif control_type == 2:
-        entry_id, metadata, offset = update_metadata_record(buf, offset)
+        entry_id, metadata, offset = update_metadata_record(payload, offset)
         if entry_id in entries:
             entries[entry_id].metadata = metadata
         else:
-            raise LogFormatError(f"Unknown entry_id {entry_id} for updating metadata at offset"
-                                 f" {offset}. Log may be corrupted.")
+            raise LogFormatError(f"unknown entry_id {entry_id} for updating metadata at offset"
+                                 f" {offset}.")
 
     else:
         raise LogFormatError(f"Unknown control type {control_type} at offset {offset}")
-
-    return offset
 
 # ---------------------------------------------------------------------------
 # data record decoding helpers
 # ---------------------------------------------------------------------------
 
-def apply_data_record(entry: Entry,
+def apply_data_record(payload: bytes,
                       timestamp: int,
-                      payload: bytes,
+                      entry: Entry,
                       signals: dict[str, BaseSignal[Any]]) -> None:
 
     sig = signals.get(entry.name)
@@ -169,10 +171,10 @@ def apply_data_record(entry: Entry,
     sig.append_payload(timestamp, payload)
 
 # ---------------------------------------------------------------------------
-# record decoding helpers
+# record payload helper
 # ---------------------------------------------------------------------------
 
-def read_record(buf: bytes, offset: int, size: int) -> tuple[bytes, int]:
+def read_record_payload(buf: bytes, offset: int, size: int) -> tuple[bytes, int]:
 
     if size < 0: # pragma: no cover - record size is read as uint
         raise LogFormatError(f"record declares negative size {size} of offset {offset}")
@@ -219,29 +221,32 @@ class LogParser:
         buf = self._buf
         offset = self._record_start
 
-        entries: dict[int, Entry] = {}
-        signals: dict[str, BaseSignal[Any]] = {}
+        self.entries: dict[int, Entry] = OrderedDict()
+        signals: dict[str, BaseSignal[Any]] = OrderedDict()
         log_end_timestamp: int = 0
 
         while offset < len(buf):
 
             entry_id, record_size, timestamp, offset = read_record_header(buf, offset)
-            record, offset = read_record(buf, offset, record_size)
+            payload, offset = read_record_payload(buf, offset, record_size)
 
             if entry_id == 0:
-                apply_control_record(record, 0, entries)
+                apply_control_record(payload, timestamp, self.entries)
             else:
 
                 try:
-                    entry = entries[entry_id]
+                    entry = self.entries[entry_id]
                 except KeyError:
                     e = LogFormatError(f"unknown entry_id {entry_id} at offset {offset}")
                     raise e from None
 
-                apply_data_record(entry, timestamp, record, signals)
+                apply_data_record(payload, timestamp, entry, signals)
                 log_end_timestamp = max(timestamp, log_end_timestamp)
 
         if offset != len(buf): # pragma: no cover - defensive invariant
             raise RuntimeError(f"parser error: parse completed at {offset} of {len(buf)} bytes")
 
         return signals, log_end_timestamp
+
+    def get_entries(self) -> dict[int, Entry]:
+        return self.entries

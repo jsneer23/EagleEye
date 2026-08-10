@@ -19,8 +19,8 @@ from eagleeye.parsers.wpilog_parser import (
     decode_header_bitfield,
     parse_wpilog_header,
     read_finish_record,
-    read_record,
     read_record_header,
+    read_record_payload,
     read_start_record,
     update_metadata_record,
 )
@@ -179,16 +179,18 @@ def test_read_record_header_raises_past_end() -> None:
 one  = '11   02000000   07000000   636f6e736f6c65   06000000   737472696e67   00000000'
 mt   = '11   09000000   00000000                    00000000                  00000000'
 meta = '11   04000000   03000000   616263           05000000   696e743634     02000000      7b7d'
-@pytest.mark.parametrize("buf, expected", [
-    (bytes.fromhex(one),  (Entry(2,"console", "string",   ""), 30)),
-    (bytes.fromhex(mt),   (Entry(9,       "",       "",   ""), 17)),
-    (bytes.fromhex(meta), (Entry(4,    "abc",  "int64", "{}"), 27)),
+@pytest.mark.parametrize("buf, timestamp, expected", [
+    (bytes.fromhex(one),  1000, (Entry(2,"console", "string",   "", 1000), 30)),
+    (bytes.fromhex(mt),   1000, (Entry(9,       "",       "",   "", 1000), 17)),
+    (bytes.fromhex(meta), 1000, (Entry(4,    "abc",  "int64", "{}", 1000), 27)),
 ])
-def test_read_start_record_with_offset(buf: bytes, expected: tuple[Entry, int]) -> None:
+def test_read_start_record_with_offset(buf: bytes,
+                                       timestamp: int,
+                                       expected: tuple[Entry, int]) -> None:
     '''
     affirmatively test read start record reads control record
     '''
-    assert read_start_record(buf, 1) == expected
+    assert read_start_record(buf, 1, timestamp) == expected
 
 def test_read_start_record_raises_on_truncated() -> None:
     '''
@@ -196,7 +198,7 @@ def test_read_start_record_raises_on_truncated() -> None:
     '''
     truncated = '11 02000000 07000000 636f6e'
     with pytest.raises(LogFormatError):
-        read_start_record(bytes.fromhex(truncated), 1)
+        read_start_record(bytes.fromhex(truncated), 1, 1000)
 
 def test_read_finish_record() -> None:
     '''
@@ -216,35 +218,37 @@ def test_read_metadata_record() -> None:
 # data record decoding helpers
 # ---------------------------------------------------------------------------
 
-#      offset   type  entry id   name len   name             type len   type           metadata len  metadata #noqa: E501
-start   = '11   00    02000000   07000000   636f6e736f6c65   06000000   737472696e67   03000000     666F6F' #noqa: E501
-#      offset   type  entry id   metadata len  metadata
-update  = '11   02    02000000   03000000      666F6F'
-#      offset   type  entry id
-finish  = '11   01    02000000'
+#       type  entry id   name len   name             type len   type           meta len    metadata
+start  = '00  02000000   07000000   636f6e736f6c65   06000000   737472696e67   03000000     666F6F'
+#       type  entry id   metadata len  metadata
+update = '02  02000000   03000000      666F6F'
+#       type  entry id
+finish = '01  02000000'
+# base entry
+entry = Entry(2, "console", "string", "", 1000)
 @pytest.mark.parametrize("init_entries, bytestr, offset, expected_entries", [
-    ({},                                      start,  1, {2: Entry(2, "console", "string", "foo")}),
-    ({2: Entry(2, "console", "string", "")}, update,  1, {2: Entry(2, "console", "string", "foo")}),
-    ({2: Entry(2, "console", "string", "")}, finish,  1, {2: Entry(2, "console", "string", "")}),
+    ({},          start,  1, {2: Entry(2, "console", "string", "foo", 1000)}),
+    ({2: entry}, update,  1, {2: Entry(2, "console", "string", "foo", 1000)}),
+    ({2: entry}, finish,  1, {}),
 ])
 def test_apply_control_record(init_entries: dict[int, Entry],
                               bytestr: str,
                               offset: int,
                               expected_entries: dict[int, Entry]) -> None:
     buf = bytes.fromhex(bytestr)
-    assert apply_control_record(buf, offset, init_entries) == len(buf)
+    apply_control_record(buf, 1000, init_entries)
     assert init_entries == expected_entries
 
-#       offset   type  entry id   name len   name             type len   type           metadata len  metadata #noqa: E501
-start    = '11   00    02000000   07000000   636f6e736f6c65   06000000   737472696e67   03000000     666F6F' #noqa: E501
-#       offset   type  entry id   metadata len  metadata
-update   = '11   02    03000000   03000000      666F6F'
-#       offset   type  entry id   metadata len  metadata
-invalid  = '11   03    02000000   03000000      666F6F'
+#         type  entry id   name len   name             type len   type           meta len  metadata
+start    = '00  02000000   07000000   636f6e736f6c65   06000000   737472696e67   03000000    666F6F'
+#         type  entry id   metadata len  metadata
+update   = '02  03000000   03000000      666F6F'
+#         type  entry id   metadata len  metadata
+invalid  = '03  02000000   03000000      666F6F'
 @pytest.mark.parametrize("init_entries, bytestr, offset", [
-    ({2: Entry(2, "console", "string", "foo")},   start,  1),
-    ({2: Entry(2, "console", "string", "")},     update,  1),
-    ({2: Entry(2, "console", "string", "")},    invalid,  1),
+    ({2: Entry(2, "console", "string", "foo", 1000)},   start,  1),
+    ({2: Entry(2, "console", "string", "", 1000)},     update,  1),
+    ({2: Entry(2, "console", "string", "", 1000)},    invalid,  1),
 ])
 def test_apply_control_record_raises(init_entries: dict[int, Entry],
                                      bytestr: str,
@@ -260,8 +264,8 @@ def test_apply_control_record_raises(init_entries: dict[int, Entry],
 def test_apply_data_record_creates_signal() -> None:
     payload = struct.pack("<q", 12000)
     signals: dict[str, BaseSignal[Any]] = {}
-    entry = Entry(1, "voltage", "int64", "")
-    apply_data_record(entry, 1000, payload, signals)
+    entry = Entry(1, "voltage", "int64", "", 1000)
+    apply_data_record(payload, 1000, entry, signals)
 
     assert "voltage" in signals
     assert isinstance(signals["voltage"], IntSignal)
@@ -269,11 +273,11 @@ def test_apply_data_record_creates_signal() -> None:
 
 def test_apply_data_record_reuses_existing_signal() -> None:
     payload = struct.pack("<q", 12000)
-    existing = create_signal(Entry(1, "voltage", "int64", ""))
+    existing = create_signal(Entry(1, "voltage", "int64", "", 1000))
     existing.append_payload(500, payload)
     signals = {"voltage": existing}
 
-    apply_data_record(Entry(1, "voltage", "int64", ""), 1000, payload, signals)
+    apply_data_record(payload, 1000, Entry(1, "voltage", "int64", "", 1000), signals)
 
     assert signals["voltage"] is existing
     assert existing.timestamps == [500, 1000]
@@ -289,7 +293,7 @@ def test_apply_data_record_reuses_existing_signal() -> None:
     (b"abcd", 1, 2, (b"bc", 3)),
 ])
 def test_read_record(buf: bytes, offset: int, size: int, expected: tuple[bytes, int]) -> None:
-    assert read_record(buf, offset, size) == expected
+    assert read_record_payload(buf, offset, size) == expected
 
 @pytest.mark.parametrize("buf, offset, size", [
     (b"", 0, 1),
@@ -299,7 +303,7 @@ def test_read_record(buf: bytes, offset: int, size: int, expected: tuple[bytes, 
 def test_read_record_raises(buf: bytes, offset: int, size: int) -> None:
     match_str = f"{size} bytes at offset {offset} but only {len(buf) - offset} remain"
     with pytest.raises(LogFormatError, match=match_str):
-        read_record(buf, offset, size)
+        read_record_payload(buf, offset, size)
 
 # ---------------------------------------------------------------------------
 # log parser class
