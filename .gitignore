@@ -20,7 +20,7 @@ dist/
 htmlcov/
 coverage.xml
 
-# Local test logs
+# Local test logs and config
 logs/
 
 # Editor / IDE

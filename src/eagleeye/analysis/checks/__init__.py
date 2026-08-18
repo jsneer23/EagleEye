@@ -1,5 +1,12 @@
-from .brownout import BrownoutCheck
-from .camera_health import CameraHealthCheck
-from .can import CanUtilizationCheck
+from .brownout import BrownoutCheck, BrownoutJSON
+from .camera_health import CameraHealthCheck, CameraHealthJSON
+from .can import CanUtilizationCheck, CanUtilJSON
 
-__all__ = ["BrownoutCheck", "CameraHealthCheck", "CanUtilizationCheck"]
+__all__ = [
+           "BrownoutCheck",
+           "BrownoutJSON",
+           "CameraHealthCheck",
+           "CameraHealthJSON",
+           "CanUtilJSON",
+           "CanUtilizationCheck",
+]

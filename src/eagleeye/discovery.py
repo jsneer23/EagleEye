@@ -2,7 +2,6 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-#from eagleeye.config import LOGS
 from eagleeye.errors import safe
 
 # ---------------------------------------------------------------------------

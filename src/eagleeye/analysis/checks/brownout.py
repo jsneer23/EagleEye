@@ -1,5 +1,8 @@
 
 from collections.abc import Iterator
+from typing import Any, Literal, Self
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from eagleeye.analysis.features import ROBOT_PHASES
 from eagleeye.analysis.util import (
@@ -14,8 +17,35 @@ from eagleeye.signals import BoolSignal, FloatSignal
 
 
 # ---------------------------------------------------------------------------
+# analysis config and json decoding
+# ---------------------------------------------------------------------------
+class BrownoutConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    type: Literal["brownout"] = "brownout"
+
+    voltage_signal: str = "/Robot/SystemStats/BatteryVoltage"
+    brownout_signal: str = "/Robot/SystemStats/BrownedOut"
+
+    warn_voltage: float = Field(default=7.5, ge=5.5, le=7.5)
+    trailing_buffer: float = Field(default=0.1, ge=0.05, le=0.5)
+
+class BrownoutJSON(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    defaults: dict[str, float] = Field(default_factory=dict)
+    instances: dict[str, dict[str, Any]] = Field(min_length=1)
+
+    def build(self) -> list[BrownoutConfig]:
+        return [
+            BrownoutConfig.model_validate(self.defaults | body | {"type": label})
+            for label, body in self.instances.items()
+        ]
+
+# ---------------------------------------------------------------------------
 # helper functions
 # ---------------------------------------------------------------------------
+
 def low_voltage_intervals(samples: Iterator[tuple[int, float]],
                           threshold: float,
                           buffer: float) -> tuple[list[tuple[float, float]], int]:
@@ -42,15 +72,20 @@ def low_voltage_intervals(samples: Iterator[tuple[int, float]],
 
     return intervals, num_low
 
+# ---------------------------------------------------------------------------
+# check
+# ---------------------------------------------------------------------------
+
+#class BrownoutCheck(Check[BrownoutConfig]):
 class BrownoutCheck(Check):
 
     def __init__(
         self,
-        voltage_signal: str = "/Robot/SystemStats/BatteryVoltage",
-        brownout_signal: str = "/Robot/SystemStats/BrownedOut",
+        voltage_signal: str,
+        brownout_signal: str,
         *,
-        warn_voltage: float = 7.5,
-        trailing_buffer: float = 0.1,
+        warn_voltage: float,
+        trailing_buffer: float,
     ) -> None:
 
         self.id = f"brownout - warn at {warn_voltage}V"
@@ -59,6 +94,15 @@ class BrownoutCheck(Check):
         self.brownout_signal = brownout_signal
         self.warn_voltage = warn_voltage
         self.interval_buffer = trailing_buffer
+
+    @classmethod
+    def from_config(cls, cfg: BrownoutConfig) -> Self:
+        return cls(
+            cfg.voltage_signal,
+            cfg.brownout_signal,
+            warn_voltage=cfg.warn_voltage,
+            trailing_buffer=cfg.trailing_buffer,
+        )
 
     def run(self, ctx: Context) -> CheckResult:
 

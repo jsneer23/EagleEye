@@ -1,5 +1,6 @@
 [env]
 EAGLEEYE_LOGS = "{{config_root}}/logs"
+EAGLEEYE_CONFIG = "{{config_root}}/configs"
 
 [tasks.setup]
 description = "One-time setup after cloning"

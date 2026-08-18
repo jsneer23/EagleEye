@@ -4,19 +4,12 @@ from rich.console import Console
 from rich.highlighter import RegexHighlighter
 from rich.theme import Theme
 
-from eagleeye.analysis.checks.brownout import BrownoutCheck
-from eagleeye.analysis.checks.camera_health import CameraHealthCheck
-from eagleeye.analysis.checks.can import CanUtilizationCheck
+from eagleeye.analysis.config_loader import load_configs
+from eagleeye.analysis.registry import build_checks
 from eagleeye.analysis.util import Check, CheckResult, Context, NotApplicableError, Severity
 from eagleeye.discovery import LogFiles
 from eagleeye.parsers.wpilog_parser import LogParser
 
-CHECKS: list[Check] = [
-    CanUtilizationCheck("/Robot/SystemStats/CANBus/Utilization", "rio"),
-    CanUtilizationCheck("/Robot/Canivore/Canivore Bus Utilization", "canivore"),
-    BrownoutCheck(),
-    CameraHealthCheck(),
-]
 
 class NumberHighlighter(RegexHighlighter):
     base_style = "num."
@@ -43,12 +36,20 @@ def main() -> None:
     event_code = sys.argv[1]
     match_code = sys.argv[2]
 
+    if len(event_code) < 6:
+        raise ValueError("invalid event code {event_code}. must be at least 6 characters.")
+
+    year = int(event_code[0:4])
+
     wpilog_path = LogFiles.for_match(event_code, match_code).wpilogs[0]
 
     signals, last_log_timestamp = LogParser.from_file(wpilog_path).parse_data()
     ctx = Context(signals, last_log_timestamp)
 
-    checks = run_all(CHECKS, ctx)
+    config_file = load_configs(year)
+
+    checks = build_checks(config_file)
+    checks = run_all(checks, ctx)
 
     for check in checks:
         console.print(check)

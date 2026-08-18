@@ -15,5 +15,11 @@ class LogFormatError(LogError):
 class PayloadError(LogError):
     public = "a data record in the log was malformed."
 
+class SchemaError(LogError):
+    public = "there was an error decoding a log schema"
+
+class ConfigError(LogError):
+    public = "there was an error decoding a check config"
+
 def safe(s: str, limit: int = 64) -> str:
     return repr(s[:limit] + "…" if len(s) > limit else s)

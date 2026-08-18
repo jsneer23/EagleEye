@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "configs": {
+    "brownout": {
+      "defaults": { 
+        "warn_voltage": 7.5,
+        "trailing_buffer": 0.1
+      },
+      "instances": {
+        "brownout": { 
+          "voltage_signal": "/Robot/SystemStats/BatteryVoltage",
+          "brownout_signal": "/Robot/SystemStats/BrownedOut"
+        }
+      }
+    },
+    "can_util": {
+      "defaults": { 
+        "warn_sustained_level": 0.80,
+        "warn_sustained_s": 0.5,
+        "warn_peak": 0.95
+      },
+      "instances": {
+        "systemcore_0": { 
+          "bus_signal": "/Robot/SystemStats/CANBus/Utilization" 
+        },
+        "canivore": { 
+          "bus_signal": "/Robot/Canivore/Canivore Bus Utilization",
+          "warn_sustained_interval_level": 0.60,
+          "warn_peak": 0.85 
+        }
+      }
+    },
+    "camera_health": {
+      "defaults": { "warn_sustained_s": 0.5 },
+      "instances": {
+        "back_right_cam": { "health_signal": "/Robot//Vision/back_right_cam/April Tag Cam Connected/" },
+        "cam_back_left":  { "health_signal": "/Robot//Vision/cam_back_left/April Tag Cam Connected/"  },
+        "cam_back_right": { "health_signal": "/Robot//Vision/cam_back_right/April Tag Cam Connected/" },
+        "cam2026_02":     { "health_signal": "/Robot//Vision/back_right_cam/April Tag Cam Connected/" }
+      }
+    }
+  }
+}
