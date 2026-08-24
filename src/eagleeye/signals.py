@@ -12,6 +12,7 @@ from eagleeye.errors import PayloadError, safe
 # abstract and base payload dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass(kw_only=True)
 class BaseSignal[V](ABC):
     name: str
@@ -20,7 +21,9 @@ class BaseSignal[V](ABC):
     values: list[V] = field(default_factory=list[V])
 
     def append_payload(self, timestamp: int, payload: bytes) -> None:
-        """decode and append payload. raises PayloadError on malformed input."""
+        """
+        decode and append payload. raises PayloadError on malformed input.
+        """
         try:
             decoded = self._decode_payload(payload)
         except (struct.error, UnicodeDecodeError) as e:
@@ -30,12 +33,11 @@ class BaseSignal[V](ABC):
         self.values.append(decoded)
 
     @abstractmethod
-    def _decode_payload(self, payload: bytes) -> V:
-        ...
+    def _decode_payload(self, payload: bytes) -> V: ...
 
-    def zip_between_ts(self,
-                       lo_ts: int | None = None,
-                       hi_ts: int | None = None) -> Iterator[tuple[int, V]]:
+    def zip_between_ts(
+        self, lo_ts: int | None = None, hi_ts: int | None = None
+    ) -> Iterator[tuple[int, V]]:
 
         if lo_ts is None or hi_ts is None:
             return iter([])
@@ -45,11 +47,23 @@ class BaseSignal[V](ABC):
 
         return zip(self.timestamps[i:j], self.values[i:j], strict=True)
 
+
+@dataclass(kw_only=True)
+class ComputedSignal[V](BaseSignal[V]):
+    """
+    a signal produced by log check analysis, not decoded from a log.
+    """
+
+    type: str = "computed"
+
+    def _decode_payload(self, payload: bytes) -> V:
+        raise NotImplementedError("computed signals are not decoded from payloads")
+
+
 @dataclass(kw_only=True)
 class PrimitiveSignal[V](BaseSignal[V]):
-
     _fmt: str = field(init=False)
-    _FORMATS: ClassVar[dict[str, str]]  = {
+    _FORMATS: ClassVar[dict[str, str]] = {
         "int16": "<h",
         "int32": "<i",
         "int64": "<q",
@@ -70,40 +84,51 @@ class PrimitiveSignal[V](BaseSignal[V]):
     def _decode_payload(self, payload: bytes) -> V:
         return struct.unpack_from(self._fmt, payload, 0)[0]
 
+
 @dataclass(kw_only=True)
 class PrimitiveArraySignal[T](PrimitiveSignal[list[T]]):
-
     def _decode_payload(self, payload: bytes) -> list[T]:
         return [v for (v,) in struct.iter_unpack(self._fmt, payload)]
+
 
 @dataclass(kw_only=True)
 class IntSignal(PrimitiveSignal[int]):
     """int scalar signal."""
+
+
 @dataclass(kw_only=True)
 class FloatSignal(PrimitiveSignal[float]):
-   """float scalar signal."""
+    """float scalar signal."""
+
+
 @dataclass(kw_only=True)
 class BoolSignal(PrimitiveSignal[bool]):
     """bool scalar signal."""
+
+
 @dataclass(kw_only=True)
 class IntArraySignal(PrimitiveArraySignal[int]):
     """list[int] scalar signal."""
+
+
 @dataclass(kw_only=True)
 class FloatArraySignal(PrimitiveArraySignal[float]):
     """list[float] scalar signal."""
+
+
 @dataclass(kw_only=True)
 class BoolArraySignal(PrimitiveArraySignal[bool]):
     """list[bool] scalar signal."""
 
+
 @dataclass(kw_only=True)
 class StrSignal(BaseSignal[str]):
-
     def _decode_payload(self, payload: bytes) -> str:
         return payload.decode("utf-8")
 
+
 @dataclass(kw_only=True)
 class StrArraySignal(BaseSignal[list[str]]):
-
     def _decode_payload(self, payload: bytes) -> list[str]:
         array_length, offset = read_uint(payload, 0, 4)
         items: list[str] = []
@@ -112,15 +137,17 @@ class StrArraySignal(BaseSignal[list[str]]):
             items.append(string)
         return items
 
+
 @dataclass(kw_only=True)
 class ByteSignal(BaseSignal[bytes]):
-
     def _decode_payload(self, payload: bytes) -> bytes:
         return payload
+
 
 # ---------------------------------------------------------------------------
 # decoding payload dataclass
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Entry:
@@ -130,34 +157,36 @@ class Entry:
     metadata: str
     timestamp: int
 
+
 # ---------------------------------------------------------------------------
 # signal creation
 # ---------------------------------------------------------------------------
 
 _SIGNAL_TYPES: dict[str, type[BaseSignal[Any]]] = {
-    "int64":     IntSignal,
-    "boolean":   BoolSignal,
-    "double":    FloatSignal,
-    "float":     FloatSignal,
-    "string":    StrSignal,
-    "int64[]":   IntArraySignal,
+    "int64": IntSignal,
+    "boolean": BoolSignal,
+    "double": FloatSignal,
+    "float": FloatSignal,
+    "string": StrSignal,
+    "int64[]": IntArraySignal,
     "boolean[]": BoolArraySignal,
-    "double[]":  FloatArraySignal,
-    "float[]":   FloatArraySignal,
-    "string[]":  StrArraySignal,
+    "double[]": FloatArraySignal,
+    "float[]": FloatArraySignal,
+    "string[]": StrArraySignal,
 }
+
 
 def create_signal(entry: Entry) -> BaseSignal[Any]:
 
     if entry.type in _SIGNAL_TYPES:
         cls = _SIGNAL_TYPES[entry.type]
-    elif (entry.type == "json" or
-        entry.type.startswith(("proto:", "struct:", "photonstruct:")) or
-        entry.type.endswith("schema")
+    elif (
+        entry.type == "json"
+        or entry.type.startswith(("proto:", "struct:", "photonstruct:"))
+        or entry.type.endswith("schema")
     ):
         cls = ByteSignal
     else:
-        raise PayloadError(f"unknown entry type {safe(entry.type)}"
-                           f" for entry {safe(entry.name)}")
+        raise PayloadError(f"unknown entry type {safe(entry.type)} for entry {safe(entry.name)}")
 
     return cls(name=entry.name, type=entry.type)

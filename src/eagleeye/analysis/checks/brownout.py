@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Iterable
 from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -13,7 +13,7 @@ from eagleeye.analysis.util import (
     us_to_s,
 )
 from eagleeye.plot import HLine, PlotSpec, Trace
-from eagleeye.signals import BoolSignal, FloatSignal
+from eagleeye.signals import BoolSignal, ComputedSignal, FloatSignal
 
 
 # ---------------------------------------------------------------------------
@@ -50,44 +50,53 @@ class BrownoutJSON(BaseModel):
 
 
 def leaky_bucket(
-    samples: Iterator[tuple[int, float]], threshold: float
-) -> tuple[list[tuple[int, int]], int]:
+    samples: Iterable[tuple[int, float]],
+    threshold: float,
+    # ) -> tuple[list[tuple[int, int]], int]:
+) -> ComputedSignal[float]:
 
     bucket = 0.0
     last_time = 0
-    capacity = 100000
-    overflowing = False
-    overflow_start = 0
-    intervals: list[tuple[int, int]] = []
     leak_rate = 0.5
 
-    num_low = 0
+    times: list[int] = []
+    bucket_levels: list[float] = []
+
+    # num_low = 0
+    # capacity = 100000
+    # overflowing = False
+    # overflow_start = 0
+    # intervals: list[tuple[int, int]] = []
 
     for time, voltage in samples:
         dt = time - last_time
         last_time = time
 
         if voltage < threshold:
-            num_low += 1
+            # num_low += 1
             bucket += dt
         else:
             bucket -= dt * leak_rate
 
         bucket = max(bucket, 0)
 
-        if bucket > capacity:
-            if not overflowing:
-                overflowing = True
-                overflow_start = time
-        elif overflowing:
-            overflowing = False
-            intervals.append((overflow_start, time))
+        print("here")
+        times.append(time)
+        bucket_levels.append(bucket)
 
-    return intervals, num_low
+        # if bucket > capacity:
+        #     if not overflowing:
+        #         overflowing = True
+        #         overflow_start = time
+        # elif overflowing:
+        #     overflowing = False
+        #     intervals.append((overflow_start, time))
+
+    return ComputedSignal(name="brownout_bucket", timestamps=times, values=bucket_levels)
 
 
 def low_voltage_intervals(
-    samples: Iterator[tuple[int, float]], threshold: float, buffer: int
+    samples: Iterable[tuple[int, float]], threshold: float, buffer: int
 ) -> tuple[list[tuple[int, int]], int]:
 
     intervals: list[tuple[int, int]] = []
@@ -136,6 +145,8 @@ class BrownoutCheck(Check):
         self.warn_voltage = warn_voltage
         self.interval_buffer = int(trailing_buffer * 1e6)
 
+        self.bucket_levels: ComputedSignal[float]
+
     @classmethod
     def from_config(cls, cfg: BrownoutConfig) -> Self:
         return cls(
@@ -146,6 +157,9 @@ class BrownoutCheck(Check):
         )
 
     def plot_spec(self, ctx: Context, result: CheckResult) -> PlotSpec | None:
+
+        print(len(self.bucket_levels.timestamps))
+
         match_span = ctx.feature(ROBOT_PHASES).match_span
         if match_span is None:
             return None
@@ -155,7 +169,8 @@ class BrownoutCheck(Check):
             t0_us=match_span[0],
             traces=[
                 Trace("Battery Voltage", ctx.require(self.voltage_signal, FloatSignal)),
-                Trace("Browned Out", ctx.require(self.brownout_signal, BoolSignal), axis="right"),
+                Trace("Bucket", self.bucket_levels, axis="right"),
+                # Trace("Browned Out", ctx.require(self.brownout_signal, BoolSignal), axis="right"),
             ],
             hlines=[HLine(self.warn_voltage, f"warn {self.warn_voltage}V")],
             bool_spans=[(int(a), int(b)) for a, b in result.intervals],
@@ -173,10 +188,12 @@ class BrownoutCheck(Check):
             raise NotApplicableError("no enabled period in log")
 
         v_zip = v_signal.zip_between_ts(*match_span)
-
         intervals, num_low = low_voltage_intervals(v_zip, self.warn_voltage, self.interval_buffer)
 
-        intervals, num_low = leaky_bucket(v_zip, self.warn_voltage)
+        v_zip = v_signal.zip_between_ts(*match_span)
+        self.bucket_levels = leaky_bucket(v_zip, self.warn_voltage)
+
+        print(len(self.bucket_levels.timestamps))
 
         b_zip: list[float] = [
             us_to_s(t, match_span)
