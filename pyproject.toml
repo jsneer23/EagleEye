@@ -11,6 +11,7 @@ requires-python = ">=3.13"
 license = { text = "MIT" }
 keywords = ["frc", "robotics", "wpilog", "datalog"]
 dependencies = [
+    "plotly>=6.9.0",
     "pydantic>=2.13.4",
     "rich>=15.0.0",
 ]
@@ -117,12 +118,24 @@ docstring-code-format = true
 pythonVersion = "3.13"
 typeCheckingMode = "strict"
 include = ["src"]
-exclude = ["**/__pycache__"]
+exclude = [
+    "**/__pycache__",
+    "**/node_modules",
+    "**/.*",
+    ".venv",
+]
 reportMissingImports = true
 reportUnusedImport = true
 reportUnusedVariable = true
 reportUntypedFunctionDecorator = false
 reportUnnecessaryTypeIgnoreComment = "warning"
+
+[[tool.pyright.executionEnvironments]]
+root = "src/eagleeye/plot.py"
+reportMissingTypeStubs = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnknownArgumentType = "none"
 
 # ---------------------------------------------------------------------------
 # pytest

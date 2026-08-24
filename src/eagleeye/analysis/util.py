@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 
     from rich.console import Console, RenderableType
 
+    from eagleeye.plot import PlotSpec
+
 # ---------------------------------------------------------------------------
 # type aliases
 # ---------------------------------------------------------------------------
@@ -23,6 +25,7 @@ type Intervals = list[Interval]
 # ---------------------------------------------------------------------------
 # log context utils
 # ---------------------------------------------------------------------------
+
 
 class Context:
     def __init__(self, signals: Mapping[str, BaseSignal[Any]], last_log_timestamp: int) -> None:
@@ -47,8 +50,10 @@ class Context:
             raise NotApplicableError(f"{name} is type {sig.__name__} not type {kind.__name__}")
         return sig
 
+
 class FeatureResult(Protocol):
     def __rich__(self) -> RenderableType: ...
+
 
 class Feature[T: FeatureResult](ABC):
     key: ClassVar[str]
@@ -56,40 +61,60 @@ class Feature[T: FeatureResult](ABC):
     @abstractmethod
     def compute(self, ctx: Context) -> T: ...
 
+
 # ---------------------------------------------------------------------------
 # log checking utils
 # ---------------------------------------------------------------------------
 
+
 class Severity(Enum):
-    '''
+    """
     enum determining the result of the automated log checks
-    '''
+    """
+
     OK = "ok"
     WARNING = "warning"
     FAIL = "fail"
     NOT_APPLICABLE = "not_applicable"
 
+
 class NotApplicableError(Exception):
-    '''
+    """
     throw error when data missing or mismatched so we only have to handle
     creating a Severity.NOT_APPLICABLE once
-    '''
+    """
+
     def __init__(self, reason: str) -> None:
         self.reason = reason
 
+
 type DetailValue = float | int | str
+
+# ---------------------------------------------------------------------------
+# log check and result storage
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CheckRun:
+    check: Check
+    result: CheckResult
+
 
 @dataclass
 class CheckResult:
-    '''
+    """
     class that holds information specific to one log check
-    '''
+    """
+
     id: str
     name: str
     severity: Severity
     summary: str
-    details: Mapping[str, DetailValue] = field(default_factory=dict[str, DetailValue]) #TODO look at this structure #noqa:E501
-    intervals: list[tuple[float, float]] = field(default_factory=list[tuple[float, float]])
+    details: Mapping[str, DetailValue] = field(
+        default_factory=dict[str, DetailValue]
+    )  # TODO look at this structure
+    intervals: list[tuple[int, int]] = field(default_factory=list[tuple[int, int]])
 
     def __str__(self) -> str:
         return f"[{self.severity.value.upper()}] {self.name}: {self.summary}"
@@ -108,72 +133,84 @@ class CheckResult:
 
         return f"{severity} {self.name}: {self.summary}"
 
+
 class Check(ABC):
-    '''
+    """
     abstract class defining the base structure for log checks
-    '''
+    """
+
     id: str
     name: str
     required_signals: list[str]
 
     @abstractmethod
-    def run(self, ctx: Context) -> CheckResult:
-        ...
+    def run(self, ctx: Context) -> CheckResult: ...
+
+    def plot_spec(self, ctx: Context, result: CheckResult) -> PlotSpec | None:
+        return None  # opt-in, not forced
 
     def applicable(self, signals: Mapping[str, BaseSignal[Any]]) -> bool:
         return all(name in signals for name in self.required_signals)
+
 
 # ---------------------------------------------------------------------------
 # helper functions
 # ---------------------------------------------------------------------------
 
+
 def us_to_s(timestamp: int, match_span: Interval) -> float:
     return (timestamp - match_span[0]) * 1e-6
+
 
 def mask[V](sig: BaseSignal[V], intervals: Intervals) -> Iterator[tuple[int, V]]:
     for lo, hi in intervals:
         yield from sig.zip_between_ts(lo, hi)
 
-def clean_intervals(intervals: list[tuple[float, float]], *, merge_gap_s: float = 0.1,
-                    min_duration_s: float =0.0) -> list[tuple[float, float]]:
+
+def clean_intervals(
+    intervals: list[tuple[int, int]], *, merge_gap_s: float = 0.1, min_duration_s: float = 0.0
+) -> list[tuple[int, int]]:
 
     if not intervals:
         return []
 
+    merge_gap = int(merge_gap_s * 1e6)
+    min_duration = int(min_duration_s * 1e6)
+
     merged = [intervals[0]]
     for start, end in intervals[1:]:
         ls, le = merged[-1]
-        if start - le <= merge_gap_s:
+        if start - le <= merge_gap:
             merged[-1] = (ls, max(le, end))
         else:
             merged.append((start, end))
-    return [(a, b) for a, b in merged if (b - a) >= min_duration_s]
+    return [(a, b) for a, b in merged if (b - a) >= min_duration]
 
-def threshold_excursions(timestamps: list[int],
-                         values: list[float],
-                         threshold: float, *,
-                         max_gap_s: float=1.0) -> tuple[float, list[tuple[float, float]]]:
+
+def threshold_excursions(
+    timestamps: list[int], values: list[float], threshold: float, *, max_gap_s: float = 1.0
+) -> tuple[float, list[tuple[int, int]]]:
     """
-    Zero-order-hold integration of time above threshold. samples: list[(t_seconds, value)]
-    sorted by t. Returns (seconds_over, intervals).
+    zero-order-hold integration of time above threshold. samples: list[(t_seconds, value)]
+    sorted by t. returns (seconds_over, intervals).
     """
+    max_gap = int(max_gap_s*1e6)
     samples = zip(timestamps, values, strict=True)
     seconds_over = 0.0
-    intervals: list[tuple[float, float]] = []
+    intervals: list[tuple[int, int]] = []
     run_start = None
     last_t = None
 
     for (t0, v0), (t1, _) in pairwise(samples):
-
         last_t = t1
         gap = t1 - t0
-        held = gap if gap <= max_gap_s else 0.0
+        held = gap if gap <= max_gap else 0.0
 
         if v0 > threshold:
             seconds_over += held
             if run_start is None:
                 run_start = t0
-            if gap > max_gap_s:
+            if gap > max_gap:
                 intervals.append((run_start, t0))
                 run_start = None
         elif run_start is not None:

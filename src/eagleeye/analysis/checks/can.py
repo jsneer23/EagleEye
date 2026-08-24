@@ -52,7 +52,7 @@ class CanUtilizationCheck(Check):
         warn_peak: float,
     ) -> None:
 
-        self.id = f"can_util::{bus_label}"
+        self.id = f"can::{bus_label}"
         self.name = f"CAN Utilization - {bus_label}"
         self.signal_name = bus_signal
         self.bus_label = bus_label

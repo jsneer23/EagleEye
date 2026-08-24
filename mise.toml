@@ -35,5 +35,9 @@ run = "uv run pytest --cov-report=xml"
 description = "Run the analysis on a single match's logs"
 run = 'uv run eagleeye {{arg(name="event_code", default="2026cacac")}} {{arg(name="match_number", default="qm1")}}'
 
+[tasks.plot]
+description = "Plot check information for a given log check"
+run = 'uv run eagleeye {{arg(name="event_code", default="2026cacac")}} {{arg(name="match_number", default="qm1")}} --plot {{arg(name="check_id", default="brownout")}}'
+
 [tasks.tests]
 run = 'uv run pytest --cov-report=html  && open htmlcov/index.html'
