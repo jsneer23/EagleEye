@@ -4,6 +4,7 @@
     "brownout": {
       "defaults": { 
         "warn_voltage": 7.5,
+        "brownout_voltage": 6.8,
         "trailing_buffer": 0.1
       },
       "instances": {

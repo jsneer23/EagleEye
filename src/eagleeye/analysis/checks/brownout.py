@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,10 +11,11 @@ from eagleeye.analysis.util import (
     Context,
     NotApplicableError,
     Severity,
+    bool_intervals,
     us_to_s,
 )
 from eagleeye.plot import HLine, PlotSpec, Trace
-from eagleeye.signals import BoolSignal, ComputedSignal, FloatSignal
+from eagleeye.signals import BoolSignal, FloatSignal, TimeSeries
 
 
 # ---------------------------------------------------------------------------
@@ -28,6 +30,7 @@ class BrownoutConfig(BaseModel):
     brownout_signal: str = "/Robot/SystemStats/BrownedOut"
 
     warn_voltage: float = Field(default=7.5, ge=5.5, le=7.5)
+    brownout_voltage: float = Field(default=6.8, ge=5.0, le=6.8)
     trailing_buffer: float = Field(default=0.1, ge=0.05, le=0.5)
 
 
@@ -49,77 +52,97 @@ class BrownoutJSON(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+@dataclass(frozen=True, slots=True)
+class BucketSample:
+    voltage: float
+    bucket_level: float
+
+
 def leaky_bucket(
     samples: Iterable[tuple[int, float]],
     threshold: float,
-    # ) -> tuple[list[tuple[int, int]], int]:
-) -> ComputedSignal[float]:
+) -> TimeSeries[BucketSample]:
 
     bucket = 0.0
-    last_time = 0
-    leak_rate = 0.5
+    last_time = None
+
+    dt_cap = 40000  # 40ms max interval - don't overcount large loop overruns
+    max_bucket = 50000
+    leak_rate = 1
 
     times: list[int] = []
-    bucket_levels: list[float] = []
-
-    # num_low = 0
-    # capacity = 100000
-    # overflowing = False
-    # overflow_start = 0
-    # intervals: list[tuple[int, int]] = []
+    buckets: list[BucketSample] = []
 
     for time, voltage in samples:
-        dt = time - last_time
+        if last_time is None:
+            last_time = time
+            continue
+
+        deficit = threshold - voltage
+
+        dt = min(time - last_time, dt_cap)
+        dt = max(0, dt)  # protect against bad input file
+
         last_time = time
 
-        if voltage < threshold:
-            # num_low += 1
-            bucket += dt
+        if deficit > 0:
+            bucket += dt * deficit
+
         else:
-            bucket -= dt * leak_rate
+            bucket += dt * deficit * leak_rate
 
         bucket = max(bucket, 0)
+        bucket = min(bucket, max_bucket)
 
-        print("here")
         times.append(time)
-        bucket_levels.append(bucket)
+        buckets.append(BucketSample(voltage=voltage, bucket_level=bucket))
 
-        # if bucket > capacity:
-        #     if not overflowing:
-        #         overflowing = True
-        #         overflow_start = time
-        # elif overflowing:
-        #     overflowing = False
-        #     intervals.append((overflow_start, time))
-
-    return ComputedSignal(name="brownout_bucket", timestamps=times, values=bucket_levels)
+    return TimeSeries[BucketSample](name="brownout_bucket", timestamps=times, values=buckets)
 
 
 def low_voltage_intervals(
-    samples: Iterable[tuple[int, float]], threshold: float, buffer: int
-) -> tuple[list[tuple[int, int]], int]:
+    buckets: Iterable[tuple[int, BucketSample]],
+    voltage_threshold: float,
+    bucket_threshold: float,
+    buffer: int,
+) -> list[tuple[int, int]]:
 
     intervals: list[tuple[int, int]] = []
-    run_start: float | None = None
+    run_start: int | None = None
     last_low: int | None = None
-    num_low: int = 0
+    last_voltage: float | None = 13.0
+    bucket_tripped: bool = False
 
-    for time, voltage in samples:
-        if voltage < threshold:
-            num_low += 1
-            last_low = time
+    for time, bucket_sample in buckets:
+        voltage = bucket_sample.voltage
+        bucket = bucket_sample.bucket_level
+
+        # detect potential interval, drop it if voltage > threshold and bucket didn't trip
+        if voltage < voltage_threshold:
             if run_start is None:
                 run_start = time
-        elif run_start is not None and last_low is not None:
-            if (time - last_low) > buffer:
-                intervals.append((run_start, last_low + buffer))
-                run_start = None
-                last_low = None
+            last_low = time
+        elif bucket_tripped is False:
+            run_start = None
+        # extend last_low one timestamp for plotting
+        elif last_voltage < voltage_threshold:
+            last_low = time
+
+        last_voltage = voltage
+
+        if bucket > bucket_threshold:
+            bucket_tripped = True
+        elif run_start is None or last_low is None:
+            continue
+        elif (time - last_low) > buffer:
+            intervals.append((run_start, last_low))
+            run_start = None
+            last_low = None
 
     if run_start is not None and last_low is not None:
-        intervals.append((run_start, last_low + buffer))
+        intervals.append((run_start, last_low))
 
-    return intervals, num_low
+    return intervals
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +158,7 @@ class BrownoutCheck(Check):
         brownout_signal: str,
         *,
         warn_voltage: float,
+        brownout_voltage: float,
         trailing_buffer: float,
     ) -> None:
 
@@ -143,9 +167,10 @@ class BrownoutCheck(Check):
         self.voltage_signal = voltage_signal
         self.brownout_signal = brownout_signal
         self.warn_voltage = warn_voltage
+        self.brownout_voltage = brownout_voltage
         self.interval_buffer = int(trailing_buffer * 1e6)
 
-        self.bucket_levels: ComputedSignal[float]
+        self.levels: list[float]
 
     @classmethod
     def from_config(cls, cfg: BrownoutConfig) -> Self:
@@ -153,12 +178,11 @@ class BrownoutCheck(Check):
             cfg.voltage_signal,
             cfg.brownout_signal,
             warn_voltage=cfg.warn_voltage,
+            brownout_voltage=cfg.brownout_voltage,
             trailing_buffer=cfg.trailing_buffer,
         )
 
     def plot_spec(self, ctx: Context, result: CheckResult) -> PlotSpec | None:
-
-        print(len(self.bucket_levels.timestamps))
 
         match_span = ctx.feature(ROBOT_PHASES).match_span
         if match_span is None:
@@ -169,11 +193,16 @@ class BrownoutCheck(Check):
             t0_us=match_span[0],
             traces=[
                 Trace("Battery Voltage", ctx.require(self.voltage_signal, FloatSignal)),
-                Trace("Bucket", self.bucket_levels, axis="right"),
-                # Trace("Browned Out", ctx.require(self.brownout_signal, BoolSignal), axis="right"),
+                # Trace("Bucket", self.bucket_levels, axis="right"),
             ],
-            hlines=[HLine(self.warn_voltage, f"warn {self.warn_voltage}V")],
-            bool_spans=[(int(a), int(b)) for a, b in result.intervals],
+            hlines=[
+                HLine(self.warn_voltage, f"warn {self.warn_voltage}V"),
+                HLine(self.brownout_voltage, f"brownout {self.brownout_voltage}V"),
+            ],
+            bool_spans=[
+                [(int(a), int(b)) for a, b in result.warn_intervals],
+                [(int(a), int(b)) for a, b in result.fail_intervals],
+            ],
             y_label="Volts",
         )
 
@@ -187,13 +216,19 @@ class BrownoutCheck(Check):
         if match_span is None:
             raise NotApplicableError("no enabled period in log")
 
+        # compute bucket levels
         v_zip = v_signal.zip_between_ts(*match_span)
-        intervals, num_low = low_voltage_intervals(v_zip, self.warn_voltage, self.interval_buffer)
+        buckets = leaky_bucket(v_zip, self.warn_voltage)
 
-        v_zip = v_signal.zip_between_ts(*match_span)
-        self.bucket_levels = leaky_bucket(v_zip, self.warn_voltage)
+        # find intervals with bucket level > threshold
+        # threshold = 10,000
+        bucket_zip = buckets.zip_between_ts(*match_span)
+        intervals = low_voltage_intervals(
+            bucket_zip, self.warn_voltage, 10000, self.interval_buffer
+        )
 
-        print(len(self.bucket_levels.timestamps))
+        # bucket levels for plotting in dev mode
+        self.bucket_levels = buckets.project(lambda s: s.bucket_level, name="bucket_level")
 
         b_zip: list[float] = [
             us_to_s(t, match_span)
@@ -205,7 +240,6 @@ class BrownoutCheck(Check):
         details = {
             "min_voltage": round(min_v, 3),
             "warn_voltage": self.warn_voltage,
-            "low_samples": num_low,
             "low_intervals": len(intervals),
             "brownout_events": len(b_signal.timestamps),
         }
@@ -227,4 +261,14 @@ class BrownoutCheck(Check):
             sev = Severity.OK
             summary = f"Battery healthy, min voltage {min_v:.2f}V."
 
-        return CheckResult(self.id, self.name, sev, summary, details, intervals)
+        fail_intervals = bool_intervals(b_signal)
+
+        return CheckResult(
+            self.id,
+            self.name,
+            sev,
+            summary,
+            details,
+            warn_intervals=intervals,
+            fail_intervals=fail_intervals,
+        )

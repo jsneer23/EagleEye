@@ -1,7 +1,7 @@
 import struct
 from abc import ABC, abstractmethod
 from bisect import bisect_left, bisect_right
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
@@ -14,7 +14,31 @@ from eagleeye.errors import PayloadError, safe
 
 
 @dataclass(kw_only=True)
-class BaseSignal[V](ABC):
+class TimeSeries[V]:
+    name: str
+    timestamps: list[int] = field(default_factory=list[int])
+    values: list[V] = field(default_factory=list[V])
+
+    def project[U](self, fn: Callable[[V], U], *, name: str) -> "TimeSeries[U]":
+        return TimeSeries(
+            name=name, timestamps=self.timestamps, values=[fn(v) for v in self.values]
+        )
+
+    def zip_between_ts(
+        self, lo_ts: int | None = None, hi_ts: int | None = None
+    ) -> Iterator[tuple[int, V]]:
+
+        if lo_ts is None or hi_ts is None:
+            return iter([])
+
+        i = bisect_left(self.timestamps, lo_ts)
+        j = bisect_right(self.timestamps, hi_ts)
+
+        return zip(self.timestamps[i:j], self.values[i:j], strict=True)
+
+
+@dataclass(kw_only=True)
+class BaseSignal[V](TimeSeries[V], ABC):
     name: str
     type: str
     timestamps: list[int] = field(default_factory=list[int])
@@ -34,30 +58,6 @@ class BaseSignal[V](ABC):
 
     @abstractmethod
     def _decode_payload(self, payload: bytes) -> V: ...
-
-    def zip_between_ts(
-        self, lo_ts: int | None = None, hi_ts: int | None = None
-    ) -> Iterator[tuple[int, V]]:
-
-        if lo_ts is None or hi_ts is None:
-            return iter([])
-
-        i = bisect_left(self.timestamps, lo_ts)
-        j = bisect_right(self.timestamps, hi_ts)
-
-        return zip(self.timestamps[i:j], self.values[i:j], strict=True)
-
-
-@dataclass(kw_only=True)
-class ComputedSignal[V](BaseSignal[V]):
-    """
-    a signal produced by log check analysis, not decoded from a log.
-    """
-
-    type: str = "computed"
-
-    def _decode_payload(self, payload: bytes) -> V:
-        raise NotImplementedError("computed signals are not decoded from payloads")
 
 
 @dataclass(kw_only=True)

@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 if TYPE_CHECKING:
-    from eagleeye.signals import BaseSignal
+    from eagleeye.signals import TimeSeries
 
 type Axis = Literal["left", "right"]
 MAX_POINTS = 20_000
@@ -16,7 +16,7 @@ MAX_POINTS = 20_000
 @dataclass(frozen=True)
 class Trace:
     label: str
-    signal: BaseSignal[Any]
+    signal: TimeSeries[float]
     axis: Axis = "left"  # "right" for booleans/flags
     visible: bool = True  # start unchecked if noisy
 
@@ -33,7 +33,8 @@ class PlotSpec:
     t0_us: int
     traces: list[Trace]
     hlines: list[HLine] = field(default_factory=list[HLine])
-    bool_spans: list[tuple[int, int]] = field(default_factory=list[tuple[int, int]])
+    bool_spans: list[list[tuple[int, int]]] = field(default_factory=list[list[tuple[int, int]]])
+    bool_colors: list[str] = field(default_factory=lambda: ["orange", "red"])
     y_label: str = ""
     y2_label: str = ""
 
@@ -88,6 +89,8 @@ def _build_trace(trace: Trace, t0_us: int) -> tuple[go.Scatter, bool]:
 def build_figure(spec: PlotSpec) -> go.Figure:
     fig: Any = make_subplots(specs=[[{"secondary_y": True}]])
 
+    fig.update_xaxes(range=[-5, 170])
+
     for trace in spec.traces:
         scatter, secondary = _build_trace(trace, spec.t0_us)
         fig.add_trace(scatter, secondary_y=secondary)
@@ -100,14 +103,29 @@ def build_figure(spec: PlotSpec) -> go.Figure:
             annotation_text=line.label,
         )
 
-    for lo_us, hi_us in spec.bool_spans:
-        fig.add_vrect(
-            x0=(lo_us - spec.t0_us) * 1e-6,
-            x1=(hi_us - spec.t0_us) * 1e-6,
-            fillcolor="red",
-            opacity=0.12,
-            line_width=0,
-        )
+    #h = 0.04
+    for idx, span in enumerate(spec.bool_spans):
+        #y0 = 1.0 - h * (idx + 1)
+        for lo_us, hi_us in span:
+            # fig.add_shape(
+            #     type="rect",
+            #     xref="x",
+            #     yref="y domain",
+            #     x0=(lo_us - spec.t0_us) * 1e-6,
+            #     x1=(hi_us - spec.t0_us) * 1e-6,
+            #     y0=y0,
+            #     y1=y0 + h,
+            #     fillcolor=spec.bool_colors[idx],
+            #     opacity=0.8,
+            #     line_width=0,
+            # )
+            fig.add_vrect(
+                x0=(lo_us - spec.t0_us) * 1e-6,
+                x1=(hi_us - spec.t0_us) * 1e-6,
+                fillcolor=spec.bool_colors[idx],
+                opacity=0.5,
+                line_width=0,
+            )
 
     fig.update_layout(title=spec.title, hovermode="x unified")
     fig.update_xaxes(title_text="Seconds since match start")

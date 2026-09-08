@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import KW_ONLY, dataclass, field
 from enum import Enum
 from itertools import pairwise
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
 
-from eagleeye.signals import BaseSignal
+from eagleeye.signals import BaseSignal, BoolSignal
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
@@ -114,7 +114,9 @@ class CheckResult:
     details: Mapping[str, DetailValue] = field(
         default_factory=dict[str, DetailValue]
     )  # TODO look at this structure
-    intervals: list[tuple[int, int]] = field(default_factory=list[tuple[int, int]])
+    _: KW_ONLY
+    warn_intervals: list[tuple[int, int]] = field(default_factory=list[tuple[int, int]])
+    fail_intervals: list[tuple[int, int]] = field(default_factory=list[tuple[int, int]])
 
     def __str__(self) -> str:
         return f"[{self.severity.value.upper()}] {self.name}: {self.summary}"
@@ -167,6 +169,24 @@ def mask[V](sig: BaseSignal[V], intervals: Intervals) -> Iterator[tuple[int, V]]
         yield from sig.zip_between_ts(lo, hi)
 
 
+def bool_intervals(sig: BoolSignal) -> list[tuple[int, int]]:
+
+    result: list[tuple[int, int]] = []
+    start_interval = 0
+    started = False
+
+    for idx, timestamp_us in enumerate(sig.timestamps):
+        bool_val = sig.values[idx]
+
+        if not bool_val and started:
+            result.append((start_interval, timestamp_us))
+        else:
+            started = True
+            start_interval = timestamp_us
+
+    return result
+
+
 def clean_intervals(
     intervals: list[tuple[int, int]], *, merge_gap_s: float = 0.1, min_duration_s: float = 0.0
 ) -> list[tuple[int, int]]:
@@ -194,7 +214,7 @@ def threshold_excursions(
     zero-order-hold integration of time above threshold. samples: list[(t_seconds, value)]
     sorted by t. returns (seconds_over, intervals).
     """
-    max_gap = int(max_gap_s*1e6)
+    max_gap = int(max_gap_s * 1e6)
     samples = zip(timestamps, values, strict=True)
     seconds_over = 0.0
     intervals: list[tuple[int, int]] = []
