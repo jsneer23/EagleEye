@@ -18,18 +18,19 @@ from eagleeye.errors import ConfigError
 
 class ConfigSection(Protocol):
     @classmethod
-    def model_validate(cls, obj: Any) -> Self: #noqa: ANN401
+    def model_validate(cls, obj: Any) -> Self:  # noqa: ANN401
         ...
-    def build(self) -> Sequence[BaseModel]:
-        ...
+    def build(self) -> Sequence[BaseModel]: ...
+
 
 CheckFactory = Callable[[Any], Check]
 
 REGISTRY: dict[str, tuple[type[ConfigSection], CheckFactory]] = {
     "brownout": (BrownoutJSON, BrownoutCheck.from_config),
     "can_util": (CanUtilJSON, CanUtilizationCheck.from_config),
-    "camera_health": (CameraHealthJSON, CameraHealthCheck.from_config)
+    "camera_health": (CameraHealthJSON, CameraHealthCheck.from_config),
 }
+
 
 def build_checks(file: ConfigFile) -> list[Check]:
 

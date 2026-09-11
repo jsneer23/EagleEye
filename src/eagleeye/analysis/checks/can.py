@@ -9,6 +9,7 @@ from eagleeye.analysis.util import (
     Severity,
     clean_intervals,
     threshold_excursions,
+    us_to_s,
 )
 from eagleeye.signals import FloatSignal
 
@@ -87,29 +88,30 @@ class CanUtilizationCheck(Check):
         peak = max(signal.values)
         mean = sum(signal.values) / len(signal.values)
         seconds_over, raw = threshold_excursions(signal.timestamps, signal.values, self.warn)
-        intervals = clean_intervals(raw, min_duration_s=0.1)
-        longest = max((b - a for a, b in intervals), default=0.0)
+        intervals = clean_intervals(raw)
+        longest_us = max((b - a for a, b in intervals), default=0)
+        longest_s = us_to_s(longest_us)
 
         details = {
             "peak": round(peak, 4),
             "mean": round(mean, 4),
             "warn_threshold": self.warn,
             "seconds_over_warn": round(seconds_over, 3),
-            "longest_excursion_s": round(longest, 3),
+            "longest_excursion_s": round(longest_s, 3),
             "samples": len(signal.values),
         }
 
-        if longest >= self.sustained:
+        if longest_s >= self.sustained:
             sev = Severity.FAIL
             summary = (
                 f"{self.bus_label}: sustained over {self.warn * 100:.0f}% for "
-                f"{longest:.1f}s (peak {peak * 100:.0f}%) — frames likely dropping."
+                f"{longest_s:.1f}s (peak {peak * 100:.0f}%) — frames likely dropping."
             )
         elif peak >= self.warn_peak:
             sev = Severity.WARNING
             summary = (
                 f"{self.bus_label}: brief spikes to {peak * 100:.0f}% but never "
-                f"sustained (longest {longest * 1000:.0f}ms)."
+                f"sustained (longest {longest_s * 1000:.0f}ms)."
             )
         else:
             sev = Severity.OK

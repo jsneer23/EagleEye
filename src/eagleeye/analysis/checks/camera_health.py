@@ -4,10 +4,8 @@ from typing import Any, Self
 from pydantic import BaseModel, ConfigDict, Field
 
 from eagleeye.analysis.features import ROBOT_PHASES
-from eagleeye.analysis.util import NotApplicableError
+from eagleeye.analysis.util import Check, CheckResult, Context, NotApplicableError, Severity
 from eagleeye.signals import BoolSignal
-
-from ..util import Check, CheckResult, Context, Severity
 
 
 # ---------------------------------------------------------------------------
@@ -18,6 +16,7 @@ class CameraHealthConfig(BaseModel):
     health_signal: str
 
     warn_sustained_s: float = Field(default=0.5, ge=0.1, le=5)
+
 
 class CameraHealthJSON(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -31,14 +30,15 @@ class CameraHealthJSON(BaseModel):
             for label, body in self.instances.items()
         ]
 
+
 # ---------------------------------------------------------------------------
 # helper functions
 # ---------------------------------------------------------------------------
 def camera_down(samples: Iterator[tuple[int, bool]]) -> tuple[bool, int, int]:
     return (False, 0, 0)
 
-class CameraHealthCheck(Check):
 
+class CameraHealthCheck(Check):
     def __init__(
         self,
         camera_label: str,
@@ -56,7 +56,7 @@ class CameraHealthCheck(Check):
         return cls(
             cfg.camera_label,
             cfg.health_signal,
-            sustained = cfg.warn_sustained_s,
+            sustained=cfg.warn_sustained_s,
         )
 
     def run(self, ctx: Context) -> CheckResult:
@@ -78,15 +78,18 @@ class CameraHealthCheck(Check):
         if down:
             if longest > self.sustained or pct > 0.05:
                 sev = Severity.FAIL
-                summary_arr.append(f"{self.camera_label}: experienced maximum sustained downtime"
-                                   f" for {longest*1000:.1f}s and was down for {pct*100:.0f}% of"
-                                    " the match")
+                summary_arr.append(
+                    f"{self.camera_label}: experienced maximum sustained downtime"
+                    f" for {longest * 1000:.1f}s and was down for {pct * 100:.0f}% of"
+                    " the match"
+                )
             elif sev == Severity.OK:
                 sev = Severity.WARNING
-                summary_arr.append(f"{self.camera_label}: experienced brief downtime"
-                                    f" (<{self.sustained*1000:.0f}ms) and was down for"
-                                    f" {pct*100:.0f}% of the match"
-                                    )
+                summary_arr.append(
+                    f"{self.camera_label}: experienced brief downtime"
+                    f" (<{self.sustained * 1000:.0f}ms) and was down for"
+                    f" {pct * 100:.0f}% of the match"
+                )
 
         if sev == Severity.OK:
             summary = "experienced no downtime."

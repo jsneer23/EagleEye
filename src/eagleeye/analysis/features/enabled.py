@@ -1,14 +1,13 @@
 from bisect import bisect_right
 from dataclasses import dataclass
 
+from eagleeye.analysis.util import Context, Feature, Interval, Intervals
 from eagleeye.signals import BoolSignal, IntSignal
-
-from ..util import Context, Feature, Interval, Intervals
 
 
 @dataclass(frozen=True)
 class RobotPhases:
-    match_start : int
+    match_start: int
     auton: Intervals
     teleop: Intervals
     log_truncated: bool = False
@@ -35,14 +34,14 @@ class RobotPhases:
 
         for start, end in self.auton:
             auton_len += end - start
-            start = (start-self.match_start)*1e-6
-            end = (end-self.match_start)*1e-6
+            start = (start - self.match_start) * 1e-6
+            end = (end - self.match_start) * 1e-6
             auton_str += f"({start:.2f},  {end:.2f})"
 
         for start, end in self.teleop:
             teleop_len += end - start
-            start = (start-self.match_start)*1e-6
-            end = (end-self.match_start)*1e-6
+            start = (start - self.match_start) * 1e-6
+            end = (end - self.match_start) * 1e-6
             teleop_str += f"({start:.2f}, {end:.2f})"
 
         auton_float = auton_len * 1e-6
@@ -65,9 +64,9 @@ def corrupted_log_disable(timestamps: list[int], values: list[int], last_log_tim
     return last_log_timestamp
 
 
-def true_intervals(timestamps: list[int],
-                   values: list[bool],
-                   corrupted_log_end: int) -> tuple[Intervals, bool]:
+def true_intervals(
+    timestamps: list[int], values: list[bool], corrupted_log_end: int
+) -> tuple[Intervals, bool]:
 
     intervals: Intervals = []
     start: int | None = None
@@ -86,14 +85,15 @@ def true_intervals(timestamps: list[int],
 
     return intervals, truncated
 
+
 def held_value(times: list[int], vals: list[bool], t: int, default: bool = False) -> bool:
 
     i = bisect_right(times, t) - 1
 
     return vals[i] if i >= 0 else default
 
-class EnabledIntervals(Feature[RobotPhases]):
 
+class EnabledIntervals(Feature[RobotPhases]):
     key = "enabled_intervals"
     enabled: str
 
@@ -104,20 +104,19 @@ class EnabledIntervals(Feature[RobotPhases]):
         fms_control = ctx.require("NT:/FMSInfo/FMSControlData", IntSignal)
         last_log_timestamp = ctx.last_log_timestamp
 
-        corrupted_log_end = corrupted_log_disable(fms_control.timestamps,
-                                                  fms_control.values,
-                                                  last_log_timestamp)
+        corrupted_log_end = corrupted_log_disable(
+            fms_control.timestamps, fms_control.values, last_log_timestamp
+        )
 
-        enabled_intervals, truncated = true_intervals(enabled.timestamps,
-                                                      enabled. values,
-                                                      corrupted_log_end)
+        enabled_intervals, truncated = true_intervals(
+            enabled.timestamps, enabled.values, corrupted_log_end
+        )
 
         auton: list[tuple[int, int]] = []
         teleop: list[tuple[int, int]] = []
         match_start = 0
 
         for start, end in enabled_intervals:
-
             if match_start == 0:
                 match_start = start
 
