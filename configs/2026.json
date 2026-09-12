@@ -5,7 +5,8 @@
       "defaults": { 
         "warn_voltage": 7.5,
         "brownout_voltage": 6.8,
-        "trailing_buffer": 0.1
+        "merge_intervals_gap_s": 0.1,
+        "min_interval_duration_s": 0.0
       },
       "instances": {
         "brownout": { 

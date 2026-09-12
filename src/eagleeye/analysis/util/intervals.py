@@ -14,9 +14,12 @@ type Intervals = list[Interval]
 
 def low_intervals(
     buckets: Iterable[tuple[int, BucketSample]],
+    *,
     signal_threshold: float,
     bucket_threshold: float,
-    buffer: int,
+    clean: bool = False,
+    merge_intervals_gap_s: float = 0.1,
+    min_duration_s: float = 0,
 ) -> Intervals:
 
     intervals: Intervals = []
@@ -50,13 +53,19 @@ def low_intervals(
             bucket_tripped = True
         elif run_start is None or last_low is None:
             continue
-        elif (time - last_low) > buffer:
+        elif time > last_low:
             intervals.append((run_start, last_low))
             run_start = None
             last_low = None
 
     if run_start is not None and last_low is not None:
         intervals.append((run_start, last_low))
+
+    if clean:
+        m_g_us = int(merge_intervals_gap_s * 1e6)
+        m_d_us = int(min_duration_s * 1e6)
+
+        return clean_intervals(intervals, merge_gap_us=m_g_us, min_duration_us=m_d_us)
 
     return intervals
 
@@ -87,9 +96,9 @@ def clean_intervals(
 
     merged = [intervals[0]]
     for start, end in intervals[1:]:
-        ls, le = merged[-1]
-        if start - le <= merge_gap_us:
-            merged[-1] = (ls, max(le, end))
+        last_start, last_end = merged[-1]
+        if start - last_end <= merge_gap_us:
+            merged[-1] = (last_start, max(last_end, end))
         else:
             merged.append((start, end))
     return [(a, b) for a, b in merged if (b - a) >= min_duration_us]

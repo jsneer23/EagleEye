@@ -31,7 +31,8 @@ class BrownoutConfig(BaseModel):
 
     warn_voltage: float = Field(default=7.5, ge=5.5, le=7.5)
     brownout_voltage: float = Field(default=6.8, ge=5.0, le=6.8)
-    trailing_buffer: float = Field(default=0.1, ge=0.05, le=0.5)
+    merge_intervals_gap_s: float = Field(default=0.1, ge=0.05, le=0.5)
+    min_interval_duration_s: float = Field(default=0, ge=0, le=0.25)
 
 
 class BrownoutJSON(BaseModel):
@@ -61,7 +62,8 @@ class BrownoutCheck(Check):
         *,
         warn_voltage: float,
         brownout_voltage: float,
-        trailing_buffer: float,
+        merge_intervals_gap_s: float,
+        min_interval_duration_s: float,
     ) -> None:
 
         self.id = "brownout"
@@ -70,7 +72,8 @@ class BrownoutCheck(Check):
         self.brownout_signal = brownout_signal
         self.warn_voltage = warn_voltage
         self.brownout_voltage = brownout_voltage
-        self.interval_buffer = int(trailing_buffer * 1e6)
+        self.merge_intervals_gap_s = merge_intervals_gap_s
+        self.min_interval_duration_s = min_interval_duration_s
 
         self.levels: list[float]
 
@@ -81,7 +84,8 @@ class BrownoutCheck(Check):
             cfg.brownout_signal,
             warn_voltage=cfg.warn_voltage,
             brownout_voltage=cfg.brownout_voltage,
-            trailing_buffer=cfg.trailing_buffer,
+            merge_intervals_gap_s=cfg.merge_intervals_gap_s,
+            min_interval_duration_s=cfg.min_interval_duration_s,
         )
 
     def plot_spec(self, ctx: Context, result: CheckResult) -> PlotSpec | None:
@@ -126,7 +130,13 @@ class BrownoutCheck(Check):
         # find intervals with bucket level > threshold
         # threshold = 10,000
         bucket_zip = buckets.zip_between_ts(*match_span)
-        intervals = low_intervals(bucket_zip, self.warn_voltage, 10000, self.interval_buffer)
+        intervals = low_intervals(
+            bucket_zip,
+            signal_threshold=self.warn_voltage,
+            bucket_threshold=10000,
+            merge_intervals_gap_s=self.merge_intervals_gap_s,
+            min_duration_s=self.min_interval_duration_s,
+        )
 
         # bucket levels for plotting in dev mode
         self.bucket_levels = buckets.project(lambda s: s.bucket_level, name="bucket_level")

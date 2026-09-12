@@ -100,8 +100,10 @@ class Check(ABC):
 # helper functions
 # ---------------------------------------------------------------------------
 
+
 def us_to_s(timestamp: int) -> float:
-    return timestamp  * 1e-6
+    return timestamp * 1e-6
+
 
 def match_time_s(timestamp: int, match_span: Interval) -> float:
     return (timestamp - match_span[0]) * 1e-6
