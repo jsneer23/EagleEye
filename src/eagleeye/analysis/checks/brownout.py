@@ -31,6 +31,7 @@ class BrownoutConfig(BaseModel):
 
     warn_voltage: float = Field(default=7.5, ge=5.5, le=7.5)
     brownout_voltage: float = Field(default=6.8, ge=5.0, le=6.8)
+
     merge_intervals_gap_s: float = Field(default=0.1, ge=0.05, le=0.5)
     min_interval_duration_s: float = Field(default=0, ge=0, le=0.25)
 
@@ -143,7 +144,7 @@ class BrownoutCheck(Check):
 
         b_zip: list[float] = [
             match_time_s(t, match_span)
-            for t, v in zip(b_signal.timestamps, b_signal.values, strict=True)
+            for t, v in zip(b_signal.timestamps_us, b_signal.values, strict=True)
             if v is True
         ]
 
@@ -152,10 +153,10 @@ class BrownoutCheck(Check):
             "min_voltage": round(min_v, 3),
             "warn_voltage": self.warn_voltage,
             "low_intervals": len(intervals),
-            "brownout_events": len(b_signal.timestamps),
+            "brownout_events": len(b_signal.timestamps_us),
         }
 
-        if len(b_signal.timestamps) > 0:
+        if len(b_zip) > 0:
             sev = Severity.FAIL
             window = f"{b_zip[0]:.1f},{b_zip[-1]:.1f}s" if len(b_zip) > 1 else f"{b_zip[0]:.1f}s"
             summary = (
@@ -170,7 +171,7 @@ class BrownoutCheck(Check):
             )
         else:
             sev = Severity.OK
-            summary = f"battery healthy, min voltage {min_v:.2f}V."
+            summary = f"min voltage {min_v:.2f}V."
 
         fail_intervals = bool_intervals(b_signal)
 

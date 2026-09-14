@@ -49,4 +49,4 @@ def leaky_bucket(
         times.append(time)
         buckets.append(BucketSample(signal=voltage, bucket_level=bucket))
 
-    return TimeSeries[BucketSample](name="brownout_bucket", timestamps=times, values=buckets)
+    return TimeSeries[BucketSample](name="brownout_bucket", timestamps_us=times, values=buckets)

@@ -1,12 +1,12 @@
 from bisect import bisect_right
 from dataclasses import dataclass
 
-from eagleeye.analysis.util import Context, Feature, Interval, Intervals
+from eagleeye.analysis.util import Context, Feature, FeatureResult, Interval, Intervals
 from eagleeye.signals import BoolSignal, IntSignal
 
 
 @dataclass(frozen=True)
-class RobotPhases:
+class RobotPhases(FeatureResult):
     match_start: int
     auton: Intervals
     teleop: Intervals
@@ -95,7 +95,6 @@ def held_value(times: list[int], vals: list[bool], t: int, default: bool = False
 
 class EnabledIntervals(Feature[RobotPhases]):
     key = "enabled_intervals"
-    enabled: str
 
     def compute(self, ctx: Context) -> RobotPhases:
 
@@ -105,11 +104,11 @@ class EnabledIntervals(Feature[RobotPhases]):
         last_log_timestamp = ctx.last_log_timestamp
 
         corrupted_log_end = corrupted_log_disable(
-            fms_control.timestamps, fms_control.values, last_log_timestamp
+            fms_control.timestamps_us, fms_control.values, last_log_timestamp
         )
 
         enabled_intervals, truncated = true_intervals(
-            enabled.timestamps, enabled.values, corrupted_log_end
+            enabled.timestamps_us, enabled.values, corrupted_log_end
         )
 
         auton: list[tuple[int, int]] = []
@@ -120,7 +119,7 @@ class EnabledIntervals(Feature[RobotPhases]):
             if match_start == 0:
                 match_start = start
 
-            if held_value(auto.timestamps, auto.values, start):
+            if held_value(auto.timestamps_us, auto.values, start):
                 auton.append((start, end))
             else:
                 teleop.append((start, end))

@@ -37,9 +37,9 @@ class PipelineFrame:
 class CameraSignal(BaseSignal[PipelineFrame]):
     frames: list[PipelineFrame] = field(default_factory=list[PipelineFrame])
 
-    def append_payload(self, timestamp: int, payload: bytes) -> None:
-        self.timestamps.append(timestamp)
-        self.frames.append(decode_pipeline_result(payload, timestamp))
+    def append_payload(self, timestamp_us: int, payload: bytes) -> None:
+        self.timestamps_us.append(timestamp_us)
+        self.frames.append(decode_pipeline_result(payload, timestamp_us))
 
 # ---------------------------------------------------------------------------
 # helper functions

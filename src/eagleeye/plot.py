@@ -68,7 +68,7 @@ def _to_seconds(timestamps: list[int], t0_us: int) -> list[float]:
 
 
 def _build_trace(trace: Trace, t0_us: int) -> tuple[go.Scatter, bool]:
-    xs = _to_seconds(trace.signal.timestamps, t0_us)
+    xs = _to_seconds(trace.signal.timestamps_us, t0_us)
     ys = [float(v) for v in trace.signal.values]
     # xs, ys = _downsample(xs, ys)
 
@@ -103,9 +103,9 @@ def build_figure(spec: PlotSpec) -> go.Figure:
             annotation_text=line.label,
         )
 
-    #h = 0.04
+    # h = 0.04
     for idx, span in enumerate(spec.bool_spans):
-        #y0 = 1.0 - h * (idx + 1)
+        # y0 = 1.0 - h * (idx + 1)
         for lo_us, hi_us in span:
             # fig.add_shape(
             #     type="rect",

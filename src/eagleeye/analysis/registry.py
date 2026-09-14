@@ -10,6 +10,8 @@ from eagleeye.analysis.checks import (
     CameraHealthJSON,
     CanUtilizationCheck,
     CanUtilJSON,
+    RadioCheck,
+    RadioJSON,
 )
 from eagleeye.analysis.config_loader import ConfigFile
 from eagleeye.analysis.util import Check
@@ -27,6 +29,7 @@ CheckFactory = Callable[[Any], Check]
 
 REGISTRY: dict[str, tuple[type[ConfigSection], CheckFactory]] = {
     "brownout": (BrownoutJSON, BrownoutCheck.from_config),
+    "radio": (RadioJSON, RadioCheck.from_config),
     "can_util": (CanUtilJSON, CanUtilizationCheck.from_config),
     "camera_health": (CameraHealthJSON, CameraHealthCheck.from_config),
 }
@@ -38,7 +41,10 @@ def build_checks(file: ConfigFile) -> list[Check]:
     unknown = configs.keys() - REGISTRY.keys()
 
     if unknown:
-        raise ConfigError(f"unknown check ids: {sorted(unknown)}")
+        raise ConfigError(
+            f"unknown check ids: {sorted(unknown)}. ensure all checks declared in config json file"
+            " are also declared in the log check registry in /src/eagleeye/analysis/registry.py"
+        )
 
     checks: list[Check] = []
     for check_id, (model, factory) in REGISTRY.items():

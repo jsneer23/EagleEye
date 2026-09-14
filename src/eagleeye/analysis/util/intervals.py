@@ -75,7 +75,7 @@ def bool_intervals(sig: BoolSignal) -> list[tuple[int, int]]:
     start_interval = 0
     started = False
 
-    for idx, timestamp_us in enumerate(sig.timestamps):
+    for idx, timestamp_us in enumerate(sig.timestamps_us):
         bool_val = sig.values[idx]
 
         if not bool_val and started:
@@ -105,14 +105,13 @@ def clean_intervals(
 
 
 def threshold_excursions(
-    timestamps: list[int], values: list[float], threshold: float, *, max_gap_s: float = 1.0
+    samples: Iterable[tuple[int, float]], threshold: float, *, max_gap_s: float = 1.0
 ) -> tuple[float, list[tuple[int, int]]]:
     """
-    zero-order-hold integration of time above threshold. samples: list[(t_seconds, value)]
+    zero-order-hold integration of time above threshold. samples: list[(ts_seconds, value)]
     sorted by t. returns (seconds_over, intervals).
     """
     max_gap = int(max_gap_s * 1e6)
-    samples = zip(timestamps, values, strict=True)
     seconds_over = 0.0
     intervals: list[tuple[int, int]] = []
     run_start = None
@@ -123,7 +122,7 @@ def threshold_excursions(
         gap = t1 - t0
         held = gap if gap <= max_gap else 0.0
 
-        if v0 > threshold:
+        if v0 < threshold:
             seconds_over += held
             if run_start is None:
                 run_start = t0

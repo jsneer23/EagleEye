@@ -2,6 +2,7 @@ from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from eagleeye.analysis.features import ROBOT_PHASES
 from eagleeye.analysis.util import (
     Check,
     CheckResult,
@@ -11,6 +12,7 @@ from eagleeye.analysis.util import (
     threshold_excursions,
     us_to_s,
 )
+from eagleeye.analysis.util.context import NotApplicableError
 from eagleeye.signals import FloatSignal
 
 
@@ -75,6 +77,11 @@ class CanUtilizationCheck(Check):
 
     def run(self, ctx: Context) -> CheckResult:
 
+        match_span = ctx.feature(ROBOT_PHASES).match_span
+
+        if match_span is None:
+            raise NotApplicableError("no enabled period in log")
+
         signal = ctx.require(self.signal_name, FloatSignal)
 
         if len(signal.values) < 2:
@@ -87,7 +94,11 @@ class CanUtilizationCheck(Check):
 
         peak = max(signal.values)
         mean = sum(signal.values) / len(signal.values)
-        seconds_over, raw = threshold_excursions(signal.timestamps, signal.values, self.warn)
+
+        can_zip = signal.zip_between_ts(*match_span)
+
+
+        seconds_over, raw = threshold_excursions(can_zip, self.warn)
         intervals = clean_intervals(raw)
         longest_us = max((b - a for a, b in intervals), default=0)
         longest_s = us_to_s(longest_us)

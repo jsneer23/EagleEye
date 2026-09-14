@@ -71,7 +71,7 @@ def main() -> None:
     args = parse()
 
     if len(args.event_code) < 6:
-        raise ValueError("invalid event code {event_code}. must be at least 6 characters.")
+        raise ValueError(f"invalid event code {args.event_code}. must be at least 6 characters.")
 
     year = int(args.event_code[0:4])
 
@@ -80,8 +80,8 @@ def main() -> None:
 
     avail_plots = [c.id for c in checks]
 
-    if args.plot not in avail_plots:
-        raise ValueError("invalid plot option {args.plot}. no check has matching id")
+    if args.plot is not None and args.plot not in avail_plots:
+        raise ValueError(f"invalid plot option {args.plot}. no check has matching id")
 
     wpilog_path = LogFiles.for_match(args.event_code, args.match_code).wpilogs[0]
 

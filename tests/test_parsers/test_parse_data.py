@@ -11,12 +11,15 @@ from .wpilog_builder import control, finish, log, record, start, update
 
 DOUBLE = "double"
 
+
 def d(value: float) -> bytes:
     return struct.pack("<d", value)
+
 
 # ---------------------------------------------------------------------------
 # positive checks
 # ---------------------------------------------------------------------------
+
 
 def test_single_signal_accumulates_samples() -> None:
     buf = log(
@@ -29,9 +32,10 @@ def test_single_signal_accumulates_samples() -> None:
     assert set(signals) == {"/voltage"}
     sig = signals["/voltage"]
     assert isinstance(sig, FloatSignal)
-    assert sig.timestamps == [1000, 2000]
+    assert sig.timestamps_us == [1000, 2000]
     assert sig.values == [12.5, 12.0]
     assert last_ts == 2000
+
 
 def test_interleaved_entries_do_not_cross_contaminate() -> None:
     buf = log(
@@ -46,6 +50,7 @@ def test_interleaved_entries_do_not_cross_contaminate() -> None:
     assert signals["/a"].values == [1.0, 3.0]
     assert signals["/b"].values == [2.0]
 
+
 def test_last_timestamp_is_max_not_last_seen() -> None:
     buf = log(
         control(start(1, "/a", DOUBLE)),
@@ -55,10 +60,12 @@ def test_last_timestamp_is_max_not_last_seen() -> None:
     _, last_ts = LogParser(buf).parse_data()
     assert last_ts == 5000
 
+
 def test_empty_log() -> None:
     signals, last_ts = LogParser(log()).parse_data()
     assert signals == {}
     assert last_ts == 0
+
 
 def test_extra_header_is_skipped() -> None:
     buf = log(
@@ -69,10 +76,11 @@ def test_extra_header_is_skipped() -> None:
     signals, _ = LogParser(buf).parse_data()
     assert signals["/a"].values == [1.0]
 
+
 def test_multibyte_headers() -> None:
-    '''
+    """
     test entry_id and timestamp header fields can be more than one byte
-    '''
+    """
     buf = log(
         control(start(300, "/a", DOUBLE)),
         record(300, 2**40, d(1.0)),
@@ -80,6 +88,7 @@ def test_multibyte_headers() -> None:
     signals, last_ts = LogParser(buf).parse_data()
     assert signals["/a"].values == [1.0]
     assert last_ts == 2**40
+
 
 def test_metadata_update_applies() -> None:
     buf = log(
@@ -89,14 +98,17 @@ def test_metadata_update_applies() -> None:
     )
     LogParser(buf).parse_data()  # no raise
 
+
 # ---------------------------------------------------------------------------
 # negative checks
 # ---------------------------------------------------------------------------
+
 
 def test_undeclared_entry_id_raises() -> None:
     buf = log(record(7, 100, d(1.0)))
     with pytest.raises(LogFormatError, match="7"):
         LogParser(buf).parse_data()
+
 
 def test_payload_too_short_for_declared_type_raises() -> None:
     buf = log(
@@ -106,6 +118,7 @@ def test_payload_too_short_for_declared_type_raises() -> None:
     with pytest.raises(PayloadError):
         LogParser(buf).parse_data()
 
+
 def test_record_overruns_buffer_raises() -> None:
     buf = log(
         control(start(1, "/a", DOUBLE)),
@@ -113,6 +126,7 @@ def test_record_overruns_buffer_raises() -> None:
     )
     with pytest.raises(LogFormatError):
         LogParser(buf[:-3]).parse_data()
+
 
 def test_data_after_finish_are_rejected() -> None:
     buf = log(
@@ -123,6 +137,7 @@ def test_data_after_finish_are_rejected() -> None:
     )
     with pytest.raises(LogFormatError, match="unknown entry_id"):
         LogParser(buf).parse_data()
+
 
 # ---------------------------------------------------------------------------
 # truncation error checks
@@ -135,6 +150,7 @@ GOOD = log(
     record(2, 200, struct.pack("<q", 7)),
     record(1, 300, d(2.0)),
 )
+
 
 @pytest.mark.parametrize("n", range(1, len(GOOD)))
 def test_truncation_doesnt_raise_unexpected_error(n: int) -> None:

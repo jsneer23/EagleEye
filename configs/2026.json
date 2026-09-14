@@ -15,6 +15,22 @@
         }
       }
     },
+    "radio": {
+      "defaults": { 
+        "err_dbm": -70,
+        "warn_dbm": -60,
+        "err_snr": 20,
+        "warn_snr": 30,
+        "merge_intervals_gap_s": 0.1,
+        "min_interval_duration_s": 0.0
+      },
+      "instances": {
+        "radio": { 
+          "radio_dbm": "/Robot/RadioStatus/StatusJson/networkStatus6/signalDbm",
+          "radio_snr": "/Robot/RadioStatus/StatusJson/networkStatus6/signalNoiseRatio"
+        }
+      }
+    },
     "can_util": {
       "defaults": { 
         "warn_sustained_level": 0.80,

@@ -1,5 +1,5 @@
 from .check import Check, CheckResult, CheckRun, Severity, match_time_s, us_to_s
-from .context import Context, Feature, NotApplicableError
+from .context import Context, Feature, FeatureResult, NotApplicableError
 from .intervals import (
     Interval,
     Intervals,
@@ -17,6 +17,7 @@ __all__ = [
     "CheckRun",
     "Context",
     "Feature",
+    "FeatureResult",
     "Interval",
     "Intervals",
     "NotApplicableError",

@@ -269,7 +269,7 @@ def test_apply_data_record_creates_signal() -> None:
 
     assert "voltage" in signals
     assert isinstance(signals["voltage"], IntSignal)
-    assert signals["voltage"].timestamps == [1000]
+    assert signals["voltage"].timestamps_us == [1000]
 
 def test_apply_data_record_reuses_existing_signal() -> None:
     payload = struct.pack("<q", 12000)
@@ -280,7 +280,7 @@ def test_apply_data_record_reuses_existing_signal() -> None:
     apply_data_record(payload, 1000, Entry(1, "voltage", "int64", "", 1000), signals)
 
     assert signals["voltage"] is existing
-    assert existing.timestamps == [500, 1000]
+    assert existing.timestamps_us == [500, 1000]
 
 # ---------------------------------------------------------------------------
 # record decoding helpers
