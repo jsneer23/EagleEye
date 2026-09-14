@@ -67,6 +67,7 @@ Run these via mise:
 | `mise run typecheck` | Pyright type check |
 | `mise run checks` | Pre-commit checks (lint, type check, and tests) |
 | `mise run analyze <event_code> <match_code>` | Analyze logs for `<match_code>` at `<event_code>` |
+| `mise run plot <event_code> <match_code> <plot_type>` | Plot log of `<plot_type>` (i.e. brownout, can, etc.)|
 
 ## Project layout
 
