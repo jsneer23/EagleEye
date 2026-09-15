@@ -24,6 +24,14 @@ class RobotPhases(FeatureResult):
 
         return (self.auton[0][0], self.teleop[-1][1])
 
+    @property
+    def enabled_time_us(self) -> int:
+
+        if not self.match_span:
+            return 0
+
+        return self.match_span[1] - self.match_span[0]
+
     def __rich__(self) -> str:
 
         if not self.auton and not self.teleop:

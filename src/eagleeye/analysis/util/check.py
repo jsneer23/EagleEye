@@ -26,6 +26,7 @@ class Severity(Enum):
     OK = "ok"
     WARNING = "warning"
     FAIL = "fail"
+    INFO = "info"
     NOT_APPLICABLE = "not_applicable"
 
 
@@ -71,8 +72,10 @@ class CheckResult:
             severity = f"[[orange3]{severity}[/orange3]]"
         elif self.severity == Severity.OK:
             severity = f"[[green]{severity}[/green]]"
+        elif self.severity == Severity.INFO:
+            severity = f"[[yellow]{severity}[/yellow]]"
         else:
-            severity = f"[[orange3]{severity}[/orange3]]"
+            severity = f"[[gray]{severity}[/gray]]"
 
         return f"{severity} {self.name}: {self.summary}"
 
