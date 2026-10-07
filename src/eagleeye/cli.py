@@ -3,22 +3,23 @@ import tempfile
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from rich.console import Console
 from rich.highlighter import RegexHighlighter
 from rich.theme import Theme
 
-from eagleeye.analysis.config_loader import load_configs
-from eagleeye.analysis.registry import build_checks
 from eagleeye.analysis.util import (
     Check,
     CheckResult,
     CheckRun,
     Context,
-    NotApplicableError,
     Severity,
 )
+from eagleeye.config.config_loader import load_configs
+from eagleeye.config.registry import build_checks, build_features
 from eagleeye.discovery import LogFiles
+from eagleeye.errors import NotApplicableError
 from eagleeye.parsers.wpilog_parser import LogParser
 from eagleeye.plot import render
 
@@ -51,7 +52,7 @@ def parse() -> Args:
     return Args(event_code=ns.event_code, match_code=ns.match_code, plot=ns.plot)
 
 
-def run_all(checks: list[Check], ctx: Context) -> list[CheckRun]:
+def run_all(checks: list[Check[Any, Any]], ctx: Context) -> list[CheckRun]:
 
     results: list[CheckRun] = []
 
@@ -77,6 +78,7 @@ def main() -> None:
 
     config_file = load_configs(year)
     checks = build_checks(config_file)
+    features = build_features(config_file)
 
     avail_plots = [c.id for c in checks]
 
@@ -86,7 +88,7 @@ def main() -> None:
     wpilog_path = LogFiles.for_match(args.event_code, args.match_code).wpilogs[0]
 
     signals, last_log_timestamp = LogParser.from_file(wpilog_path).parse_data()
-    ctx = Context(signals, last_log_timestamp)
+    ctx = Context(signals, features, last_log_timestamp)
 
     check_runs = run_all(checks, ctx)
 

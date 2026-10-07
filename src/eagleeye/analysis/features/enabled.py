@@ -2,6 +2,7 @@ from bisect import bisect_right
 from dataclasses import dataclass
 
 from eagleeye.analysis.util import Context, Feature, FeatureResult, Interval, Intervals
+from eagleeye.config.models import MatchInfo
 from eagleeye.signals import BoolSignal, IntSignal
 
 
@@ -101,14 +102,15 @@ def held_value(times: list[int], vals: list[bool], t: int, default: bool = False
     return vals[i] if i >= 0 else default
 
 
-class EnabledIntervals(Feature[RobotPhases]):
-    key = "enabled_intervals"
+class EnabledIntervals(Feature[MatchInfo, RobotPhases]):
+    id = "enabled_intervals"
+    source = "match_info"
 
     def compute(self, ctx: Context) -> RobotPhases:
 
-        enabled = ctx.require("DS:enabled", BoolSignal)
-        auto = ctx.require("DS:autonomous", BoolSignal)
-        fms_control = ctx.require("NT:/FMSInfo/FMSControlData", IntSignal)
+        enabled = ctx.require(self.signals.enabled, BoolSignal)
+        auto = ctx.require(self.signals.autonomous, BoolSignal)
+        fms_control = ctx.require(self.signals.fms_control, IntSignal)
         last_log_timestamp = ctx.last_log_timestamp
 
         corrupted_log_end = corrupted_log_disable(
@@ -133,3 +135,6 @@ class EnabledIntervals(Feature[RobotPhases]):
                 teleop.append((start, end))
 
         return RobotPhases(match_start, auton, teleop, truncated)
+
+
+ROBOT_PHASES = EnabledIntervals

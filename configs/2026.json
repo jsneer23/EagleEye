@@ -1,21 +1,59 @@
 {
   "version": 1,
-  "configs": {
+  "sources": {
+    "match_info": {
+      "enabled": "DS:enabled",
+      "autonomous": "DS:autonomous",
+      "fms_control": "NT:/FMSInfo/FMSControlData"
+    },
+    "cameras": {
+      "instances": {
+        "back_right_cam": {
+          "health": "/Robot//Vision/back_right_cam/April Tag Cam Connected/",
+          "accepted_ts": "/Robot//Vision/back_right_cam/Accepted Time Stamp/"
+        },
+        "cam_back_left":  {
+          "health": "/Robot//Vision/cam_back_left/April Tag Cam Connected/",
+          "accepted_ts": "/Robot//Vision/cam_back_left/Accepted Time Stamp/"
+        },
+        "cam_back_right": {
+          "health": "/Robot//Vision/cam_back_right/April Tag Cam Connected/",
+          "accepted_ts": "/Robot//Vision/cam_back_right/Accepted Time Stamp/"
+        },
+        "cam2026_02":     {
+          "health": "/Robot//Vision/cam2026_02/April Tag Cam Connected/",
+          "accepted_ts": "/Robot//Vision/cam2026_02/Accepted Time Stamp/"
+        }
+      }
+    },
+    "can":{
+      "instances": {
+        "systemcore_0": { 
+          "util": "/Robot/SystemStats/CANBus/Utilization" 
+        },
+        "canivore": { 
+          "util": "/Robot/Canivore/Canivore Bus Utilization"
+        }
+      }
+    },
+    "power": {
+        "voltage": "/Robot/SystemStats/BatteryVoltage",
+        "brownout": "/Robot/SystemStats/BrownedOut"
+    },
+    "comms": {
+        "radio_status": "/Robot/RadioStatus/StatusJson"
+    }
+  },
+  "thresholds": {
     "brownout": {
       "defaults": { 
         "warn_voltage": 7.5,
         "brownout_voltage": 6.8,
         "merge_intervals_gap_s": 0.1,
         "min_interval_duration_s": 0.0
-      },
-      "instances": {
-        "brownout": { 
-          "voltage_signal": "/Robot/SystemStats/BatteryVoltage",
-          "brownout_signal": "/Robot/SystemStats/BrownedOut"
-        }
       }
     },
-    "radio": {
+    "radio_signal": {
       "defaults": { 
         "err_dbm": -70,
         "warn_dbm": -60,
@@ -23,12 +61,6 @@
         "warn_snr": 30,
         "merge_intervals_gap_s": 0.1,
         "min_interval_duration_s": 0.0
-      },
-      "instances": {
-        "radio": { 
-          "radio_dbm": "/Robot/RadioStatus/StatusJson/networkStatus6/signalDbm",
-          "radio_snr": "/Robot/RadioStatus/StatusJson/networkStatus6/signalNoiseRatio"
-        }
       }
     },
     "can_util": {
@@ -37,24 +69,20 @@
         "warn_sustained_s": 0.5,
         "warn_peak": 0.95
       },
-      "instances": {
-        "systemcore_0": { 
-          "bus_signal": "/Robot/SystemStats/CANBus/Utilization" 
-        },
+      "overrides": {
         "canivore": { 
-          "bus_signal": "/Robot/Canivore/Canivore Bus Utilization",
-          "warn_sustained_interval_level": 0.60,
+          "warn_sustained_level": 0.60,
           "warn_peak": 0.85 
         }
       }
     },
     "camera_health": {
-      "defaults": { "warn_sustained_s": 0.5 },
-      "instances": {
-        "back_right_cam": { "health_signal": "/Robot//Vision/back_right_cam/April Tag Cam Connected/" },
-        "cam_back_left":  { "health_signal": "/Robot//Vision/cam_back_left/April Tag Cam Connected/"  },
-        "cam_back_right": { "health_signal": "/Robot//Vision/cam_back_right/April Tag Cam Connected/" },
-        "cam2026_02":     { "health_signal": "/Robot//Vision/back_right_cam/April Tag Cam Connected/" }
+      "defaults": { 
+        "warn_sustained_s": 0.5 
+      }
+    },
+    "april_tag_seen":{
+      "defaults": {
       }
     }
   }

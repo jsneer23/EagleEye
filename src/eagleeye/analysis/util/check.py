@@ -3,12 +3,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import KW_ONLY, dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
-    from eagleeye.analysis.util import Context, Interval, Intervals
+    from eagleeye.analysis.util.context import Context
+    from eagleeye.analysis.util.intervals import Interval, Intervals
+    from eagleeye.config.models import StrictModel
     from eagleeye.plot import PlotSpec
     from eagleeye.signals import BaseSignal
 
@@ -39,7 +41,7 @@ type DetailValue = float | int | str
 
 @dataclass(frozen=True)
 class CheckRun:
-    check: Check
+    check: Check[Any, Any]
     result: CheckResult
 
 
@@ -80,14 +82,19 @@ class CheckResult:
         return f"{severity} {self.name}: {self.summary}"
 
 
-class Check(ABC):
+class Check[S: StrictModel, T: StrictModel](ABC):
     """
     abstract class defining the base structure for log checks
     """
 
-    id: str
-    name: str
-    required_signals: list[str]
+    id: ClassVar[str]
+    name: ClassVar[str]
+    source: ClassVar[str]
+
+    def __init__(self, instance: str, signals: S, thresholds: T) -> None:
+        self.instance = instance
+        self.signals = signals
+        self.thresholds = thresholds
 
     @abstractmethod
     def run(self, ctx: Context) -> CheckResult: ...
@@ -96,7 +103,7 @@ class Check(ABC):
         return None  # opt-in, not forced
 
     def applicable(self, signals: Mapping[str, BaseSignal[Any]]) -> bool:
-        return all(name in signals for name in self.required_signals)
+        return all(path in signals for path in self.signals.model_dump().values())
 
 
 # ---------------------------------------------------------------------------

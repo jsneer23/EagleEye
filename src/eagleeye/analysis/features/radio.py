@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, ConfigDict, Field
 
 from eagleeye.analysis.util import Context, Feature, FeatureResult
+from eagleeye.config.models import CommsSignals
 from eagleeye.signals import ByteSignal, TimeSeries
 
 
@@ -32,8 +33,9 @@ class RadioTelemetry(FeatureResult):
     def __rich__(self) -> str: ...
 
 
-class RadioData(Feature[RadioTelemetry]):
-    key = "radio_telemetry"
+class RadioData(Feature[CommsSignals, RadioTelemetry]):
+    id = "radio_telemetry"
+    source = "comms"
 
     def compute(self, ctx: Context) -> RadioTelemetry:
 
@@ -53,3 +55,6 @@ class RadioData(Feature[RadioTelemetry]):
                 name="radio_status", timestamps_us=timestamps_us, values=samples
             )
         )
+
+
+RADIO_JSON = RadioData

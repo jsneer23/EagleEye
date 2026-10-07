@@ -1,7 +1,5 @@
-from .enabled import EnabledIntervals
-from .radio import RadioData
+from .camera_health import CAMERA_HEALTH
+from .enabled import ROBOT_PHASES
+from .radio import RADIO_JSON
 
-__all__ = ["EnabledIntervals"]
-
-ROBOT_PHASES = EnabledIntervals()
-RADIO_JSON = RadioData()
+__all__ = ["CAMERA_HEALTH", "RADIO_JSON", "ROBOT_PHASES"]
