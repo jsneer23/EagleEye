@@ -141,7 +141,10 @@ class CanUtilThresholds(StrictModel):
 
 
 class CameraHealthThresholds(StrictModel):
+    fail_sustained_s: float = Field(default=1, ge=0.1, le=10)
+    fail_pct_down: float = Field(default=0.05, ge=0, le=1)
     warn_sustained_s: float = Field(default=0.5, ge=0.1, le=5)
+    warn_pct_down: float = Field(default=0.01, ge=0, le=1)
 
 
 class AprilTagThresholds(StrictModel):

@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 from eagleeye.config.models import StrictModel
+from eagleeye.errors import ConfigError
 
 if TYPE_CHECKING:
     from rich.console import RenderableType
@@ -40,10 +41,18 @@ class FeatureSet:
         inner[feature.instance] = feature
 
     def get(self, cls: type[Feature[Any, Any]], instance: str | None = None) -> Feature[Any, Any]:
-        by_instance = self._by_class[cls]
+        try:
+            by_instance = self._by_class[cls]
+        except KeyError as e:
+            raise ConfigError(
+                f"feature {cls.__name__} not declared in FEATURE_REGISTRY in config/registry.py"
+            ) from e
         if instance is None:
             if len(by_instance) != 1:
-                raise ValueError(f"{cls.__name__} has {len(by_instance)} instances; pass one")
+                raise ValueError(
+                    f"config file declares {len(by_instance)} instances of {cls.__name__}; pass one"
+                     " to ctx.feature()"
+                )
             (only,) = by_instance.values()
             return only
         return by_instance[instance]

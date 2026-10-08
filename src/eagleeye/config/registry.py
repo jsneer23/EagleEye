@@ -4,11 +4,11 @@ from pydantic import ValidationError
 
 from eagleeye.analysis.checks import (
     BrownoutCheck,
-    # CameraHealthCheck,
+    CameraHealthCheck,
     CanUtilCheck,
     RadioCheck,
 )
-from eagleeye.analysis.features import RADIO_JSON, ROBOT_PHASES
+from eagleeye.analysis.features import CAMERA_HEALTH, RADIO_JSON, ROBOT_PHASES
 from eagleeye.analysis.util import Check, Feature, FeatureSet
 from eagleeye.config.models import CheckConfig, Config, Source, StrictModel
 from eagleeye.errors import ConfigError
@@ -17,10 +17,10 @@ CHECK_REGISTRY: tuple[type[Check[Any, Any]], ...] = (
     BrownoutCheck,
     RadioCheck,
     CanUtilCheck,
-    # CameraHealthCheck,
+    CameraHealthCheck,
 )
 
-FEATURE_REGISTRY: tuple[type[Feature[Any, Any]], ...] = (RADIO_JSON, ROBOT_PHASES)
+FEATURE_REGISTRY: tuple[type[Feature[Any, Any]], ...] = (RADIO_JSON, ROBOT_PHASES, CAMERA_HEALTH)
 
 
 def build_checks(config: Config) -> list[Check[Any, Any]]:

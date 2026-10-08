@@ -4,7 +4,6 @@ from eagleeye.analysis.util import (
     CheckResult,
     Context,
     Severity,
-    us_to_s,
 )
 from eagleeye.config.models import CameraHealthThresholds, CameraSignals
 
@@ -21,30 +20,27 @@ class CameraHealthCheck(Check[CameraSignals, CameraHealthThresholds]):
     def run(self, ctx: Context) -> CheckResult:
 
         sev = Severity.OK
-        summary_arr: list[str] = []
+        summary = ""
 
-        camera = ctx.feature(CAMERA_HEALTH)
+        camera = ctx.feature(CAMERA_HEALTH, self.instance)
 
         if camera.down:
-            if camera.longest_down_us > self.thresholds.warn_sustained_s or camera.pct_down > 0.05:
+            summary = (
+                f"{self.instance}: experienced maximum sustained downtime for"
+                f" {camera.longest_down_s:.1f}s and was down for"
+                f" {camera.pct_down * 100:.0f}% of the match"
+            )
+            if (
+                camera.longest_down_s > self.thresholds.fail_sustained_s
+                or camera.pct_down > self.thresholds.fail_pct_down
+            ):
                 sev = Severity.FAIL
-                longest_down_s = us_to_s(camera.longest_down_us)
-                summary_arr.append(
-                    f"{self.instance}: experienced maximum sustained downtime"
-                    f" for {longest_down_s:.1f}s and was down for {camera.pct_down * 100:.0f}% of"
-                    " the match"
-                )
-            else:
+            elif (
+                camera.longest_down_s > self.thresholds.warn_sustained_s
+                or camera.pct_down > self.thresholds.warn_pct_down
+            ):
                 sev = Severity.WARNING
-                summary_arr.append(
-                    f"{self.instance}: experienced brief downtime"
-                    f" (<{self.thresholds.warn_sustained_s * 1000:.0f}ms) and was down for"
-                    f" {camera.pct_down * 100:.0f}% of the match"
-                )
-
-        if sev == Severity.OK:
-            summary = "experienced no downtime."
         else:
-            summary = "\n".join(summary_arr)
+            summary = "experienced no downtime"
 
         return CheckResult(self.id, self.instance, sev, summary)

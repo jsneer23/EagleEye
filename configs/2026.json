@@ -77,8 +77,11 @@
       }
     },
     "camera_health": {
-      "defaults": { 
-        "warn_sustained_s": 0.5 
+      "defaults": {
+        "fail_sustained_s": 1,
+        "fail_pct_down": 0.05,
+        "warn_sustained_s": 0.5,
+        "warn_pct_down": 0.01 
       }
     },
     "april_tag_seen":{
