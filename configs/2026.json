@@ -84,8 +84,11 @@
         "warn_pct_down": 0.01 
       }
     },
-    "april_tag_seen":{
+    "april_tag_seen_pct":{
       "defaults": {
+        "warn_pct": 0.5,
+        "fail_pct": 0.3,
+        "accepted_tag_timeout_ms": 80
       }
     }
   }

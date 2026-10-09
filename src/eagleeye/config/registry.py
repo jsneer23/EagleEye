@@ -3,6 +3,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from eagleeye.analysis.checks import (
+    AprilTagCheck,
     BrownoutCheck,
     CameraHealthCheck,
     CanUtilCheck,
@@ -18,6 +19,7 @@ CHECK_REGISTRY: tuple[type[Check[Any, Any]], ...] = (
     RadioCheck,
     CanUtilCheck,
     CameraHealthCheck,
+    AprilTagCheck,
 )
 
 FEATURE_REGISTRY: tuple[type[Feature[Any, Any]], ...] = (RADIO_JSON, ROBOT_PHASES, CAMERA_HEALTH)

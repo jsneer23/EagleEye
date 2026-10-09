@@ -54,12 +54,24 @@ class CameraAvailability(FeatureResult):
         return len(self.down_intervals) > 0
 
     @property
-    def total_down_s(self) -> float:
+    def total_down_us(self) -> int:
         total_us = 0
         for start, end in self.down_intervals:
             total_us += end - start
 
-        return us_to_s(total_us)
+        return total_us
+
+    @property
+    def total_down_s(self) -> float:
+        return us_to_s(self.total_down_us)
+
+    @property
+    def total_up_us(self) -> int:
+        return self.match_span[1] - self.match_span[0] - self.total_down_us
+
+    @property
+    def total_up_s(self) -> float:
+        return us_to_s(self.total_up_us)
 
     @property
     def longest_down_s(self) -> float:

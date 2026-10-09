@@ -148,7 +148,9 @@ class CameraHealthThresholds(StrictModel):
 
 
 class AprilTagThresholds(StrictModel):
-    warn_pct: float = Field(default=50, ge=10, le=100)
+    warn_pct: float = Field(default=0.4, ge=0.1, le=1)
+    fail_pct: float = Field(default=0.2, ge=0.1, le=1)
+    accepted_tag_timeout_ms: int = Field(default=80, ge=50, le=120)
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +181,7 @@ class Thresholds(StrictModel):
     radio_signal: CheckConfig[RadioThresholds] | None = None
     can_util: CheckConfig[CanUtilThresholds] | None = None
     camera_health: CheckConfig[CameraHealthThresholds] | None = None
-    april_tag: CheckConfig[CameraHealthThresholds] | None = Field(alias="april_tag_seen")
+    april_tag: CheckConfig[AprilTagThresholds] | None = Field(alias="april_tag_seen_pct")
 
 
 # ---------------------------------------------------------------------------
