@@ -6,7 +6,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Iterable, Mapping
 
     from eagleeye.analysis.util.context import Context
     from eagleeye.analysis.util.intervals import Interval, Intervals
@@ -119,6 +119,6 @@ def match_time_s(timestamp: int, match_span: Interval) -> float:
     return (timestamp - match_span[0]) * 1e-6
 
 
-def mask[V](sig: BaseSignal[V], intervals: Intervals) -> Iterator[tuple[int, V]]:
+def mask[V](sig: BaseSignal[V], intervals: Intervals) -> Iterable[tuple[int, V]]:
     for lo, hi in intervals:
         yield from sig.zip_between_ts(lo, hi)

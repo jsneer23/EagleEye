@@ -1,7 +1,7 @@
 import struct
 from abc import ABC, abstractmethod
 from bisect import bisect_left, bisect_right
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
@@ -26,7 +26,7 @@ class TimeSeries[V]:
 
     def zip_between_ts(
         self, lo_ts: int | None = None, hi_ts: int | None = None
-    ) -> Iterator[tuple[int, V]]:
+    ) -> Iterable[tuple[int, V]]:
 
         i = 0
         j = len(self.timestamps_us)

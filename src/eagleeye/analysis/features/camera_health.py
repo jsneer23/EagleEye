@@ -1,5 +1,5 @@
 from bisect import bisect_right
-from collections.abc import Iterator
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from eagleeye.analysis.util import Context, Feature, FeatureResult, Interval, Intervals
@@ -11,7 +11,7 @@ from eagleeye.signals import BoolSignal
 from .enabled import ROBOT_PHASES
 
 
-def down_intervals(samples: Iterator[tuple[int, bool]], match_span: Interval) -> Intervals:
+def down_intervals(samples: Iterable[tuple[int, bool]], match_span: Interval) -> Intervals:
 
     curr_interval_start: int | None = None
     result: Intervals = []
