@@ -1,3 +1,5 @@
+min_version = "2026.10.0"
+
 [env]
 EAGLEEYE_LOGS = "{{config_root}}/logs"
 EAGLEEYE_CONFIG = "{{config_root}}/configs"
@@ -33,11 +35,22 @@ run = "uv run pytest --cov-report=xml"
 
 [tasks.analyze]
 description = "Run the analysis on a single match's logs"
-run = 'uv run eagleeye {{arg(name="event_code", default="2026cacac")}} {{arg(name="match_number", default="qm1")}}'
+usage = '''
+flag "--event-code <event_code>" default = "2026cacac"
+flag "--match-number <match_number>" default="qm1"
+'''
+run = 'uv run eagleeye {{ usage.event_code }} {{ usage.match_number }}'
 
 [tasks.plot]
-description = "Plot check information for a given log check"
-run = 'uv run eagleeye {{arg(name="event_code", default="2026cacac")}} {{arg(name="match_number", default="qm1")}} --plot {{arg(name="check_id", default="brownout")}}'
+description = "plot check information for a given log check"
+usage = '''
+flag "--event-code <event_code>" default="2026cacac"
+flag "--match-number <match_number>" default="qm1"
+flag "--check-id <check_id>" default="brownout" {
+  choices "brownout" "can_util" "radio_signal"
+}
+'''
+run = 'uv run eagleeye {{ usage.event_code }} {{ usage.match_number }} --plot {{ usage.check_id }}'
 
 [tasks.tests]
 run = 'uv run pytest --cov-report=html  && open htmlcov/index.html'
