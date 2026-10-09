@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from itertools import pairwise
 
 from eagleeye.analysis.util.leaky_bucket import BucketSample
@@ -104,29 +104,30 @@ def clean_intervals(
     return [(a, b) for a, b in merged if (b - a) >= min_duration_us]
 
 
-def threshold_excursions(
-    samples: Iterable[tuple[int, float]], threshold: float, *, max_gap_s: float = 1.0
-) -> tuple[float, list[tuple[int, int]]]:
-    """
-    zero-order-hold integration of time above threshold. samples: list[(ts_seconds, value)]
-    sorted by t. returns (seconds_over, intervals).
-    """
-    max_gap = int(max_gap_s * 1e6)
-    seconds_over = 0.0
-    intervals: list[tuple[int, int]] = []
-    run_start = None
-    last_t = None
+def _excursions(
+    samples: Iterable[tuple[int, float]],
+    condition: Callable[[float], bool],
+    *,
+    max_gap_us: int = 1_000_000,
+) -> tuple[int, Intervals]:
+    us_under: int = 0
+    intervals: Intervals = []
+    run_start: int | None = None
+    last_t: int | None = None
 
     for (t0, v0), (t1, _) in pairwise(samples):
         last_t = t1
         gap = t1 - t0
-        held = gap if gap <= max_gap else 0.0
+        held = gap if gap <= max_gap_us else 0
 
-        if v0 < threshold:
-            seconds_over += held
-            if run_start is None:
+        if t1 < t0:
+            raise ValueError("signal not sorted")
+
+        if condition(v0):
+            us_under += held
+            if run_start is None and held != 0:
                 run_start = t0
-            if gap > max_gap:
+            elif run_start is not None and gap > max_gap_us:
                 intervals.append((run_start, t0))
                 run_start = None
         elif run_start is not None:
@@ -136,4 +137,28 @@ def threshold_excursions(
     if run_start is not None and last_t is not None:
         intervals.append((run_start, last_t))
 
-    return seconds_over, intervals
+    return us_under, intervals
+
+
+def threshold_excursions_above(
+    samples: Iterable[tuple[int, float]], threshold: float, *, max_gap_us: int = 1_000_000
+) -> tuple[int, Intervals]:
+    """
+    zero-order-hold integration of time above threshold. samples: list[(ts_us, value)]
+    sorted by t. returns (us_over, intervals).
+
+    raises value error if input signal is not sorted.
+    """
+    return _excursions(samples, lambda v: v > threshold, max_gap_us=max_gap_us)
+
+
+def threshold_excursions_below(
+    samples: Iterable[tuple[int, float]], threshold: float, *, max_gap_us: int = 1_000_000
+) -> tuple[int, Intervals]:
+    """
+    zero-order-hold integration of time below threshold. samples: list[(ts_us, value)]
+    sorted by t. returns (us_over, intervals).
+
+    raises value error if input signal is not sorted.
+    """
+    return _excursions(samples, lambda v: v < threshold, max_gap_us=max_gap_us)

@@ -4,7 +4,8 @@ from eagleeye.analysis.util import (
     CheckResult,
     Context,
     Severity,
-    threshold_excursions,
+    threshold_excursions_below,
+    us_to_s,
 )
 from eagleeye.config.models import CommsSignals, RadioThresholds
 from eagleeye.errors import NotApplicableError
@@ -62,15 +63,17 @@ class RadioCheck(Check[CommsSignals, RadioThresholds]):
         # compute bucket levels
         dbm_signal = radio_telemetry.project(lambda s: s.radio_dbm, name="radio_dbm")
         dbm_zip = dbm_signal.zip_between_ts(*match_span)
-        dbm_seconds_over, dbm_intervals = threshold_excursions(
-            dbm_zip, threshold=self.thresholds.err_dbm, max_gap_s=7
+        dbm_below_us, dbm_intervals = threshold_excursions_below(
+            dbm_zip, threshold=self.thresholds.err_dbm, max_gap_us=int(7e6)
         )
+        dbm_below_s = us_to_s(dbm_below_us)
 
         snr_signal = radio_telemetry.project(lambda s: s.radio_snr, name="radio_snr")
         snr_zip = snr_signal.zip_between_ts(*match_span)
-        snr_seconds_over, snr_intervals = threshold_excursions(
-            snr_zip, threshold=self.thresholds.err_snr, max_gap_s=7
+        snr_below_us, snr_intervals = threshold_excursions_below(
+            snr_zip, threshold=self.thresholds.err_snr, max_gap_us=int(7e6)
         )
+        snr_below_s = us_to_s(snr_below_us)
 
         details = {"low_dbm": len(dbm_intervals), "low_snr": len(snr_intervals)}
 
@@ -80,12 +83,12 @@ class RadioCheck(Check[CommsSignals, RadioThresholds]):
             if snr_intervals:
                 summary = summary + (
                     f"signal to noise ratio was above threshold {self.thresholds.warn_snr} for"
-                    f"{snr_seconds_over}s between intervals {snr_intervals}\n"
+                    f"{snr_below_s}s between intervals {snr_intervals}\n"
                 )
             if dbm_intervals:
                 summary = summary + (
                     f"radio dbm was below threshold {self.thresholds.warn_dbm} for "
-                    f" {dbm_seconds_over}s between intervals {dbm_intervals}\n"
+                    f" {dbm_below_s}s between intervals {dbm_intervals}\n"
                 )
         else:
             sev = Severity.OK

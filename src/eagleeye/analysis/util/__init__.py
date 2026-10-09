@@ -7,7 +7,8 @@ from .intervals import (
     bool_intervals,
     clean_intervals,
     low_intervals,
-    threshold_excursions,
+    threshold_excursions_above,
+    threshold_excursions_below,
 )
 from .leaky_bucket import BucketSample, leaky_bucket
 
@@ -28,6 +29,7 @@ __all__ = [
     "leaky_bucket",
     "low_intervals",
     "match_time_s",
-    "threshold_excursions",
+    "threshold_excursions_above",
+    "threshold_excursions_below",
     "us_to_s",
 ]

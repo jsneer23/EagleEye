@@ -5,11 +5,12 @@ from eagleeye.analysis.util import (
     Context,
     Severity,
     clean_intervals,
-    threshold_excursions,
+    threshold_excursions_above,
     us_to_s,
 )
 from eagleeye.analysis.util.context import NotApplicableError
 from eagleeye.config.models import CanSignals, CanUtilThresholds
+from eagleeye.plot import HLine, PlotSpec, Trace
 from eagleeye.signals import FloatSignal
 
 # ---------------------------------------------------------------------------
@@ -25,6 +26,31 @@ class CanUtilCheck(Check[CanSignals, CanUtilThresholds]):
     @property
     def result_id(self) -> str:
         return f"{self.id}::{self.instance}"
+
+    def plot_spec(self, ctx: Context, result: CheckResult) -> PlotSpec | None:
+
+        match_span = ctx.feature(ROBOT_PHASES).match_span
+
+        if match_span is None:
+            return None
+
+        return PlotSpec(
+            title=self.name,
+            t0_us=match_span[0],
+            traces=[
+                Trace("Util %", ctx.require(self.signals.util, FloatSignal)),
+            ],
+            hlines=[
+                HLine(
+                    self.thresholds.warn_sustained_level,
+                    f"warn {self.thresholds.warn_sustained_level * 100:.1f}%",
+                ),
+            ],
+            bool_spans=[
+                [(int(a), int(b)) for a, b in result.warn_intervals],
+            ],
+            y_label="Util %",
+        )
 
     def run(self, ctx: Context) -> CheckResult:
 
@@ -48,9 +74,11 @@ class CanUtilCheck(Check[CanSignals, CanUtilThresholds]):
 
         can_zip = signal.zip_between_ts(*match_span)
 
-        seconds_over, raw = threshold_excursions(can_zip, self.thresholds.warn_sustained_level)
+        us_over, raw = threshold_excursions_above(can_zip, self.thresholds.warn_sustained_level)
         intervals = clean_intervals(raw)
         longest_us = max((b - a for a, b in intervals), default=0)
+
+        seconds_over = us_to_s(us_over)
         longest_s = us_to_s(longest_us)
 
         details = {
